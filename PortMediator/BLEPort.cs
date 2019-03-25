@@ -16,7 +16,7 @@ namespace PortMediator
     class BLEPort : Port
     {
         BluetoothLEAdvertisementWatcher bleWatcher_ = null;
-
+        
         BluetoothLEDevice bleDevice_ = null;
         GattDeviceService gattService_ = null;
         GattCharacteristic gattCharacteristic_ = null;
@@ -105,8 +105,10 @@ namespace PortMediator
             return success;
         }
 
-        public BLEPort()
+        public BLEPort(string localName)
         {
+            bleDeviceLocalName_ = localName;
+
             bleWatcher_ = new BluetoothLEAdvertisementWatcher();
 
             bleWatcher_.ScanningMode = BluetoothLEScanningMode.Active;

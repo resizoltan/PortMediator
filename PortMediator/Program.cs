@@ -17,7 +17,7 @@ namespace PortMediator
             Console.WriteLine("Port Mediator");
             Console.WriteLine("Activating default link");
 
-            Link link = new OpenBLTLink();
+            Link link = CreateWaldlaeuferLink();
             Task<bool> openLinkTask = link.Open();
             openLinkTask.Wait();
             if (openLinkTask.Status == TaskStatus.RanToCompletion)
@@ -66,56 +66,159 @@ namespace PortMediator
                 userInput = Console.ReadLine();
             } while (userInput != "exit");
         }
+
+        private static Link CreateWaldlaeuferLink()
+        {
+            Link link = new Link("WaldlaeuferLink");
+
+            string mouse = "mouse";
+            string matlab = "matlab";
+            string bootcommander = "bootcommander";
+
+            link.AddPort(mouse, new BLEPort("JDY-10-V2.4"), link.DataSenderFunc(bootcommander));
+            link.AddPort(bootcommander, new SERIALPort("COM9", 115200), (byte[] data) =>
+            {
+                if (!packetInProgress)
+                {
+                    packetInProgress = true;
+                    packetLength = data;
+                    packet = new byte[packetLength + 1];
+                    packet[0] = packetLength;
+                }
+                else
+                {
+                    packet[++bytesReceived] = data;
+                    if (bytesReceived == packetLength)
+                    {
+                        port1_.SendData(packet);
+                        packetInProgress = false;
+                        packetLength = 0;
+                        bytesReceived = 0;
+                    }
+                }
+            });
+
+
+            return link;
+        }
     }
 
     
-    abstract class Link
+    class Link
     {
-        protected Port port1_;
-        protected Port port2_;
+        string name_;
+        //public enum PortName
 
-        public abstract void ProcessPort1Data(object sender, DataReceivedEventArgs eventArgs);
-        public abstract void ProcessPort2Data(object sender, DataReceivedEventArgs eventArgs);
-
-        public Link(Port port1, Port port2)
+        protected class PortHandler
         {
-            port1_ = port1;
-            port2_ = port2;
-            port1_.DataReceived += ProcessPort1Data;
-            port2_.DataReceived += ProcessPort2Data;
+            private Port port_;
+            public Action<byte[]> DataProcessor_ { get; set; }
+
+            public PortHandler(Port port)
+            {
+                port_ = port;
+                port_.DataReceived += (object sender, DataReceivedEventArgs eventArgs) => DataProcessor_(eventArgs.data);
+            }
+
+            public PortHandler(Port port, Action<byte[]> dataProcessor)
+            {
+                port_ = port;
+                DataProcessor_ = dataProcessor;
+            }
+
+            public Task<bool> OpenPort()
+            {
+                return port_.OpenPort();
+            }
+
+            public Task<bool> StartReading()
+            {
+                return port_.StartReading();
+            }
+
+            public void Close()
+            {
+                port_.ClosePort();
+            }
+
+            public void SendData(byte[] data)
+            {
+                port_.SendData(data);
+            }
+        }
+
+        protected Dictionary<string, PortHandler> ports = null;
+
+        /*public abstract void ProcessPortData(object sender, DataReceivedEventArgs eventArgs);
+        public abstract void ProcessPort2Data(object sender, DataReceivedEventArgs eventArgs);*/
+
+        public Link(string name)
+        {
+            name_ = name;
+        }
+
+        public void AddPort(string name, Port type, Action<byte[]> dataProcessor)
+        {
+            ports.Add(name, new PortHandler(type, dataProcessor));
+        }
+
+        public Action<byte[]> DataSenderFunc(string portName)
+        {
+            
+            Action<byte[]> dataSenderFunc = null;
+            try
+            {
+                PortHandler foundPort = ports[portName];
+                dataSenderFunc = foundPort.SendData;
+            }
+            catch(KeyNotFoundException e)
+            {
+                Console.WriteLine("ERROR: Non-existent port requested");
+                dataSenderFunc = null;
+            }
+
+            return dataSenderFunc;
         }
 
         public async Task<bool> Open()
         {
-            bool port1Open = await port1_.OpenPort();
-            bool port2Open = await port2_.OpenPort();
-            return port1Open & port2Open;
+            bool success = true;
+            foreach(var port in ports)
+            {
+                success &= await port.Value.OpenPort();
+            }
+            return success;
         }
 
         public async Task<bool> Activate()
         {
-            bool port1Active = await port1_.StartReading();
-            bool port2Active = await port2_.StartReading();
-            return port1Active & port2Active;
+            bool success = true;
+            foreach (var port in ports)
+            {
+                success &= await port.Value.StartReading();
+            }
+            return success;
         }
 
         public void Close()
         {
-            port1_.ClosePort();
-            port2_.ClosePort();
+            foreach (var port in ports)
+            {
+                port.Value.Close();
+            }
         }
 
     }
 
-    class OpenBLTLink : Link
+    /*class WaldlaeuferLink : Link
     {
-        public OpenBLTLink():base(new BLEPort(), new SERIALPort("COM8", 115200))
-        {   }
-
-        public override void ProcessPort1Data(object sender, DataReceivedEventArgs eventArgs)
+        public WaldlaeuferLink() : base("WaldlaeuferLink")
         {
-            port2_.SendData(eventArgs.data);
+
         }
+
+        
+
 
         bool packetInProgress = false;
         byte packetLength = 0;
@@ -144,5 +247,5 @@ namespace PortMediator
                 }
             }
         }
-    }
+    }*/
 }

@@ -28,5 +28,6 @@ namespace PortMediator
     public class DataReceivedEventArgs : EventArgs
     {
         public byte[] data { get; set; }
+
     }
 }
