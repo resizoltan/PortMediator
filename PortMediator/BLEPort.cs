@@ -78,7 +78,8 @@ namespace PortMediator
         {
             bool success = false;
 
-            Func<Task<bool>> attemptToSubscribe = async delegate
+            if (bleDevice_.ConnectionStatus == BluetoothConnectionStatus.Connected &&
+                gattCharacteristic_ != null)
             {
                 GattCommunicationStatus status = await gattCharacteristic_.WriteClientCharacteristicConfigurationDescriptorAsync(
                                 GattClientCharacteristicConfigurationDescriptorValue.Notify);
@@ -92,11 +93,6 @@ namespace PortMediator
                     Console.WriteLine("Failed at subscribing to bluetooth GATT characteristic notifications, characteristic unreachable");
                     return false;
                 }
-            };
-            if (bleDevice_.ConnectionStatus == BluetoothConnectionStatus.Connected &&
-                gattCharacteristic_ != null)
-            {
-                success = await attemptToSubscribe();
             }
             else
             {

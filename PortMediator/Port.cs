@@ -30,4 +30,9 @@ namespace PortMediator
         public byte[] data { get; set; }
 
     }
+
+    class DataProcessor
+    {
+
+    }
 }

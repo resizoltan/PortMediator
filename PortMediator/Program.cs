@@ -19,13 +19,27 @@ namespace PortMediator
 
             Link link = CreateWaldlaeuferLink();
             Task<bool> openLinkTask = link.Open();
-            openLinkTask.Wait();
+            try
+            {
+                openLinkTask.Wait();
+            }
+            catch (AggregateException e)
+            {
+                Console.WriteLine("ERROR in main: " + e.Message);
+            }
             if (openLinkTask.Status == TaskStatus.RanToCompletion)
             {
                 if(openLinkTask.Result == true)
                 {
                     Task<bool> activateLinkTask = link.Activate();
-                    activateLinkTask.Wait();
+                    try
+                    {
+                        activateLinkTask.Wait();
+                    }
+                    catch(AggregateException e)
+                    {
+                        Console.WriteLine("ERROR in main: " + e.Message);
+                    }
 
                     if (activateLinkTask.Status == TaskStatus.RanToCompletion)
                     {
@@ -67,114 +81,153 @@ namespace PortMediator
             } while (userInput != "exit");
         }
 
+        enum PORTS
+        {
+            mouse,
+            matlab,
+            bootcommander
+        }
+
         private static Link CreateWaldlaeuferLink()
         {
-            Link link = new Link("WaldlaeuferLink");
+            Link link = new Link("Waldlaeufer");
 
-            string mouse = "mouse";
-            string matlab = "matlab";
-            string bootcommander = "bootcommander";
+            link.AddPort((int)PORTS.mouse, new BLEPort("JDY-10-V2.4"));
+            link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM8", 115200));
 
-            link.AddPort(mouse, new BLEPort("JDY-10-V2.4"), link.DataSenderFunc(bootcommander));
-            link.AddPort(bootcommander, new SERIALPort("COM9", 115200), (byte[] data) =>
-            {
-                if (!packetInProgress)
-                {
-                    packetInProgress = true;
-                    packetLength = data;
-                    packet = new byte[packetLength + 1];
-                    packet[0] = packetLength;
-                }
-                else
-                {
-                    packet[++bytesReceived] = data;
-                    if (bytesReceived == packetLength)
-                    {
-                        port1_.SendData(packet);
-                        packetInProgress = false;
-                        packetLength = 0;
-                        bytesReceived = 0;
-                    }
-                }
-            });
-
+            link.AddPacketProcessorFunc((int)PORTS.mouse, link.SendDataTo((int)PORTS.bootcommander));
+            link.AddPacketProcessorFunc((int)PORTS.bootcommander, link.SendDataTo((int)PORTS.mouse));
 
             return link;
         }
     }
 
-    
-    class Link
+    class PortHandler
     {
-        string name_;
-        //public enum PortName
+        private Port port_;
 
-        protected class PortHandler
+        private bool packetInProgress = false;
+        private byte packetLength = 0;
+        private byte[] packet = null;
+        private byte bytesReceived = 0;
+
+        private void ProcessData(byte[] data)
         {
-            private Port port_;
-            public Action<byte[]> DataProcessor_ { get; set; }
-
-            public PortHandler(Port port)
+            foreach(byte b in data)
             {
-                port_ = port;
-                port_.DataReceived += (object sender, DataReceivedEventArgs eventArgs) => DataProcessor_(eventArgs.data);
-            }
-
-            public PortHandler(Port port, Action<byte[]> dataProcessor)
-            {
-                port_ = port;
-                DataProcessor_ = dataProcessor;
-            }
-
-            public Task<bool> OpenPort()
-            {
-                return port_.OpenPort();
-            }
-
-            public Task<bool> StartReading()
-            {
-                return port_.StartReading();
-            }
-
-            public void Close()
-            {
-                port_.ClosePort();
-            }
-
-            public void SendData(byte[] data)
-            {
-                port_.SendData(data);
+                if (!packetInProgress)
+                {
+                    packetInProgress = true;
+                    packetLength = b;
+                    packet = new byte[packetLength + 1];
+                    packet[0] = packetLength;
+                }
+                else
+                {
+                    packet[++bytesReceived] = b;
+                    if (bytesReceived == packetLength)
+                    {
+                        processPacket(packet);
+                        packetInProgress = false;
+                        packetLength = 0;
+                        bytesReceived = 0;
+                    }
+                }
             }
         }
 
-        protected Dictionary<string, PortHandler> ports = null;
+        private Action<byte[]> processPacket = null;
+        public Action<byte[]> ProcessPacket {
+            set
+            {
+                processPacket = value;
+            }
+        }
 
-        /*public abstract void ProcessPortData(object sender, DataReceivedEventArgs eventArgs);
-        public abstract void ProcessPort2Data(object sender, DataReceivedEventArgs eventArgs);*/
+        
+
+        public PortHandler(Port port)
+        {
+            port_ = port;
+            port_.DataReceived += (object sender, DataReceivedEventArgs eventArgs) => ProcessData(eventArgs.data);
+        }
+
+        public PortHandler(Port port, Action<byte[]> packetProcessorFunc)
+        {
+            port_ = port;
+            ProcessPacket = packetProcessorFunc;
+        }
+
+        public Task<bool> OpenPort()
+        {
+            return port_.OpenPort();
+        }
+
+        public Task<bool> StartReading()
+        {
+            return port_.StartReading();
+        }
+
+        public void Close()
+        {
+            port_.ClosePort();
+        }
+
+        public void SendData(byte[] data)
+        {
+            port_.SendData(data);
+        }
+    }
+    class Link
+    {
+        string name_;
+        
+        protected Dictionary<int, PortHandler> ports = new Dictionary<int, PortHandler>();
 
         public Link(string name)
         {
             name_ = name;
         }
 
-        public void AddPort(string name, Port type, Action<byte[]> dataProcessor)
+        public void AddPort(int ID, Port type)
         {
-            ports.Add(name, new PortHandler(type, dataProcessor));
+            ports.Add(ID, new PortHandler(type));
         }
 
-        public Action<byte[]> DataSenderFunc(string portName)
+        public void AddPacketProcessorFunc(int portID, Action<byte[]> packetProcessorFunc)
+        {
+            try
+            {
+                PortHandler foundPort = ports[portID];
+                foundPort.ProcessPacket = packetProcessorFunc;
+            }
+            catch (KeyNotFoundException e)
+            {
+                Console.WriteLine("ERROR: Non-existent port requested");
+            }
+            catch (NullReferenceException e)
+            {
+                Console.WriteLine("ERROR: " + e.Message);
+            }
+        }
+
+        public Action<byte[]> SendDataTo(int portID)
         {
             
             Action<byte[]> dataSenderFunc = null;
             try
             {
-                PortHandler foundPort = ports[portName];
+                PortHandler foundPort = ports[portID];
                 dataSenderFunc = foundPort.SendData;
             }
             catch(KeyNotFoundException e)
             {
                 Console.WriteLine("ERROR: Non-existent port requested");
                 dataSenderFunc = null;
+            }
+            catch(NullReferenceException e)
+            {
+                Console.WriteLine("ERROR: " + e.Message);
             }
 
             return dataSenderFunc;
@@ -209,43 +262,4 @@ namespace PortMediator
         }
 
     }
-
-    /*class WaldlaeuferLink : Link
-    {
-        public WaldlaeuferLink() : base("WaldlaeuferLink")
-        {
-
-        }
-
-        
-
-
-        bool packetInProgress = false;
-        byte packetLength = 0;
-        byte[] packet = null;
-        byte bytesReceived = 0;
-        public override void ProcessPort2Data(object sender, DataReceivedEventArgs eventArgs)
-        {
-            // data should be 1 byte!
-            byte data = eventArgs.data[0];
-            if (!packetInProgress)
-            {
-                packetInProgress = true;
-                packetLength = data;
-                packet = new byte[packetLength + 1];
-                packet[0] = packetLength;
-            }
-            else
-            {
-                packet[++bytesReceived] = data;
-                if(bytesReceived == packetLength)
-                {
-                    port1_.SendData(packet);
-                    packetInProgress = false;
-                    packetLength = 0;
-                    bytesReceived = 0;
-                }
-            }
-        }
-    }*/
 }

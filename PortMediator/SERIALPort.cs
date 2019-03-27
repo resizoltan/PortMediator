@@ -7,7 +7,6 @@ using System.IO.Ports;
 using System.IO;
 using System.Threading.Tasks;
 
-
 namespace PortMediator
 {
     class SERIALPort : Port
