@@ -17,7 +17,7 @@ namespace PortMediator
             Console.WriteLine("Port Mediator");
             Console.WriteLine("Activating default link");
 
-            Link link = CreateWaldlaeuferLink();
+            Link link = CreateTCPTesterLink();
             Task<bool> openLinkTask = link.Open();
             try
             {
@@ -78,6 +78,10 @@ namespace PortMediator
             do
             {
                 userInput = Console.ReadLine();
+                if(userInput == "send")
+                {
+                    link.SendDataTo((int)PORTS.remote);
+                }
             } while (userInput != "exit");
         }
 
@@ -85,6 +89,8 @@ namespace PortMediator
         {
             mouse,
             matlab,
+            remote,
+            serialconsole,
             bootcommander
         }
 
@@ -97,6 +103,19 @@ namespace PortMediator
 
             link.AddPacketProcessorFunc((int)PORTS.mouse, link.SendDataTo((int)PORTS.bootcommander));
             link.AddPacketProcessorFunc((int)PORTS.bootcommander, link.SendDataTo((int)PORTS.mouse));
+
+            return link;
+        }
+
+        private static Link CreateTCPTesterLink()
+        {
+            Link link = new Link("TCPTester");
+
+            link.AddPort((int)PORTS.remote, new TCPPort(11000));
+            link.AddPort((int)PORTS.serialconsole, new SERIALPort("COM8", 115200));
+
+            link.AddPacketProcessorFunc((int)PORTS.remote, link.SendDataTo((int)PORTS.serialconsole));
+            link.AddPacketProcessorFunc((int)PORTS.serialconsole, link.SendDataTo((int)PORTS.remote));
 
             return link;
         }
@@ -113,7 +132,15 @@ namespace PortMediator
 
         private void ProcessData(byte[] data)
         {
-            foreach(byte b in data)
+            processPacket(data);
+            foreach(var b in data)
+            {
+                Console.Write(b + " ");
+            }
+            Console.WriteLine("");
+            Console.WriteLine(Encoding.ASCII.GetString(data));
+
+            /*foreach (byte b in data)
             {
                 if (!packetInProgress)
                 {
@@ -133,7 +160,7 @@ namespace PortMediator
                         bytesReceived = 0;
                     }
                 }
-            }
+            }*/
         }
 
         private Action<byte[]> processPacket = null;

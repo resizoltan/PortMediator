@@ -17,7 +17,13 @@ namespace PortMediator
         
         private bool acceptingEnabled = true;
         private int port_ = 11000;
+        Socket listener = null;
+        IPEndPoint localEndPoint = null;
+        static byte[] address = { 192, 168, 91, 1 };
 
+        Socket sender = null;
+        static IPAddress remoteIP = new IPAddress(address);
+        IPEndPoint remoteEndPoint = new IPEndPoint(remoteIP, 53557);
         public class EndPointHandler
         {
             public Socket workSocket = null;
@@ -30,39 +36,79 @@ namespace PortMediator
 
         List<EndPointHandler> endpoints = new List<EndPointHandler>();
 
-        //private ManualResetEvent endPointIdentified = new ManualResetEvent(false);
+        ManualResetEvent endPointAccepted = new ManualResetEvent(false);
         public TCPPort(int port)
         {
             port_ = port;
         }
 
-        public override Task<bool> OpenPort()
+        private void WaitForNextData()
         {
-            IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
-            IPAddress ipAddress = ipHostInfo.AddressList[0];
-            IPEndPoint localEndPoint = new IPEndPoint(ipAddress, port_);
-
-            Socket server = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                
+            
             try
             {
-                server.Bind(localEndPoint);
-                server.Listen(100);
-
-                ManualResetEvent endPointAccepted = new ManualResetEvent(false);
+                listener.Bind(localEndPoint);
+                listener.Listen(100);
                 do
                 {
-                    server.BeginAccept(new AsyncCallback(AcceptCallback), server);
+                    listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
                     endPointAccepted.WaitOne();
                     endPointAccepted.Reset();
                 } while (acceptingEnabled);
-    }
-            catch(AggregateException e)
+
+            }
+            catch (AggregateException e)
             {
                 Console.WriteLine(e.ToString());
             }
-            return Task<bool>.FromResult(true);
+        }
+
+        public async override Task<bool> OpenPort()
+        {
+            IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
+           // bool success = false;
+            IPAddress ipAddress = null;
+            foreach (var ipa in ipHostInfo.AddressList)
+            {
+                if(ipa.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    ipAddress = ipa;
+                }
+            }
+            if(ipAddress != null)
+            {
+                localEndPoint = new IPEndPoint(ipAddress, port_);
+                listener = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                sender = new Socket(remoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            }
+            Console.WriteLine("Host EP: " + localEndPoint.ToString());
+
+            /*Action acceptEndpoints = delegate
+            {
+                try
+                {
+                    server.Bind(localEndPoint);
+                    server.Listen(100);
+
+                    do
+                    {
+                        server.BeginAccept(new AsyncCallback(AcceptCallback), server);
+                        endPointAccepted.WaitOne();
+                        endPointAccepted.Reset();
+                    } while (acceptingEnabled);
+
+                    server.BeginAccept(new AsyncCallback(AcceptCallback), server);
+                    endPointAccepted.WaitOne();
+                }
+                catch (AggregateException e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+            };
+            await Task.Run(acceptEndpoints);*/
+                
+            
+            return true;
 
         }
 
@@ -73,8 +119,7 @@ namespace PortMediator
 
             EndPointHandler newEndPointHandler = new EndPointHandler();
             newEndPointHandler.workSocket = handler;
-            endpoints.Add(newEndPointHandler);
-            //handler.BeginReceive(partnerHandler.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(readCallback), partnerHandler);
+            handler.BeginReceive(newEndPointHandler.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(ReadCallback), newEndPointHandler);
         }
 
         private void ReadCallback(IAsyncResult asyncResult)
@@ -83,45 +128,104 @@ namespace PortMediator
             Socket socket = eph.workSocket;
 
             int bytesRead = socket.EndReceive(asyncResult);
-            byte[] data = new byte[bytesRead];
-            Array.Copy(eph.buffer, 0, data, 0, bytesRead);
-            OnDataReceived(data);
+            if(bytesRead > 0)
+            {
+                byte[] data = new byte[bytesRead];
+                Array.Copy(eph.buffer, 0, data, 0, bytesRead);
+                OnDataReceived(data);
+                socket.BeginReceive(eph.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(ReadCallback), eph);
+            }
+            endPointAccepted.Set();
+
+            //eph.workSocket.BeginReceive(eph.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(ReadCallback), eph);
         }
 
         public async override Task<bool> StartReading()
         {
-            /*bool success = true;
-             foreach(EndPointHandler eph in endpoints)
-             {
-                 eph.workSocket.BeginReceive(eph.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(identifyCallback), eph);
-                 endPointIdentified.WaitOne();
-                 if(eph.endPointName == null)
-                 {
-                     success = false;
-                 }
-                 endPointIdentified.Reset();
-             }*/
-            bool success = true;
-            try
+            bool success = false;
+            Task.Run((Action)WaitForNextData);
+            success = true;
+
+            /*foreach(EndPointHandler eph in endpoints)
             {
-                foreach (EndPointHandler eph in endpoints)
+                eph.workSocket.BeginReceive(eph.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(identifyCallback), eph);
+                endPointIdentified.WaitOne();
+                if(eph.endPointName == null)
                 {
-                    eph.workSocket.BeginReceive(eph.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(ReadCallback), eph);
-                    //endPointIdentified.WaitOne();
-                    //endPointIdentified.Reset();
+                    success = false;
                 }
+                endPointIdentified.Reset();
             }
-            catch(AggregateException e)
-            {
-                Console.WriteLine("e.Message");
-                success = false;
-            }
+           bool success = true;
+           try
+           {
+               foreach (EndPointHandler eph in endpoints)
+               {
+                   eph.workSocket.BeginReceive(eph.buffer, 0, EndPointHandler.BufferSize, 0, new AsyncCallback(ReadCallback), eph);
+                   //endPointIdentified.WaitOne();
+                   //endPointIdentified.Reset();
+               }
+           }
+           catch(AggregateException e)
+           {
+               Console.WriteLine("e.Message");
+               success = false;
+           }*/
             return success;
         }
-
+        ManualResetEvent step = new ManualResetEvent(true);
         public override void SendData(byte[] data)
         {
-            throw new NotImplementedException();
+            step.WaitOne();
+            step.Reset();
+            sender.BeginConnect(remoteEndPoint, ConnectCallback, sender);
+            step.WaitOne();
+            step.Reset();
+            sender.BeginSendTo(data, 0, data.Length, SocketFlags.None, remoteEndPoint, SendCallback, sender);
+            step.WaitOne();
+            step.Reset();
+            sender.BeginDisconnect(true, DisconnectCallback, sender);
+
+        }
+
+        private void ConnectCallback(IAsyncResult asyncResult)
+        {
+            try
+            {
+                listener.EndConnect(asyncResult);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            step.Set();
+        }
+
+        private void DisconnectCallback(IAsyncResult asyncResult)
+        {
+            try
+            {
+                listener.EndDisconnect(asyncResult);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            step.Set();
+
+        }
+
+        private void SendCallback(IAsyncResult asyncResult)
+        {
+            try
+            {
+                int bytesSent = listener.EndSend(asyncResult);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            step.Set();
         }
 
         public override void ClosePort()
