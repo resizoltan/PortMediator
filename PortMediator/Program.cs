@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 
 namespace PortMediator
@@ -16,8 +17,7 @@ namespace PortMediator
 
             Console.WriteLine("Port Mediator");
             Console.WriteLine("Activating default link");
-
-            Link link = CreateTCPTesterLink();
+            Link link = CreateWaldlaeuferLink();
             Task<bool> openLinkTask = link.Open();
             try
             {
@@ -75,13 +75,28 @@ namespace PortMediator
                 }
             }
 
+            TCPTestClient testClient = new TCPTestClient();
+            IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
+            IPAddress localIPAdress = null;
+            foreach (var ipa in ipHostInfo.AddressList)
+            {
+                if (ipa.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    localIPAdress = ipa;
+                }
+            }
+            IPEndPoint hostEndPoint = new IPEndPoint(localIPAdress, 11000);
+            //testClient.StartClient(hostEndPoint);
+
             do
             {
                 userInput = Console.ReadLine();
-                if(userInput == "send")
+                //testClient.SendToHost(new byte[] { 0, 0, 0, 0, 0xff, 0 });
+                //testClient.SendToHost(Encoding.ASCII.GetBytes(userInput));
+                /*if(userInput == "send")
                 {
                     link.SendDataTo((int)PORTS.remote);
-                }
+                }*/
             } while (userInput != "exit");
         }
 
@@ -89,7 +104,8 @@ namespace PortMediator
         {
             mouse,
             matlab,
-            remote,
+            remote1,
+            remote2,
             serialconsole,
             bootcommander
         }
@@ -99,10 +115,24 @@ namespace PortMediator
             Link link = new Link("Waldlaeufer");
 
             link.AddPort((int)PORTS.mouse, new BLEPort("JDY-10-V2.4"));
-            link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM8", 115200));
+            //link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM8", 115200));
+            link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM13", 115200));
+            link.AddPort((int)PORTS.serialconsole, new SERIALPort("COM8", 115200));
+
+            bool comWithSerial = false;
+            Action<byte[]> serialProcessor = (byte[] data) =>
+            {
+                if (!comWithSerial)
+                {
+                    link.AddPacketProcessorFunc((int)PORTS.mouse, link.SendDataTo((int)PORTS.serialconsole));
+                    comWithSerial = true;
+                }
+                link.SendDataTo((int)PORTS.mouse);
+            };
 
             link.AddPacketProcessorFunc((int)PORTS.mouse, link.SendDataTo((int)PORTS.bootcommander));
             link.AddPacketProcessorFunc((int)PORTS.bootcommander, link.SendDataTo((int)PORTS.mouse));
+            link.AddPacketProcessorFunc((int)PORTS.serialconsole, link.SendDataTo((int)PORTS.mouse));
 
             return link;
         }
@@ -111,11 +141,21 @@ namespace PortMediator
         {
             Link link = new Link("TCPTester");
 
-            link.AddPort((int)PORTS.remote, new TCPPort(11000));
-            link.AddPort((int)PORTS.serialconsole, new SERIALPort("COM8", 115200));
+            link.AddPort((int)PORTS.remote1, new TCPPort(11000));
+            link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM8", 115200));
+            link.AddPort((int)PORTS.serialconsole, new SERIALPort("COM13", 115200));
 
-            link.AddPacketProcessorFunc((int)PORTS.remote, link.SendDataTo((int)PORTS.serialconsole));
-            link.AddPacketProcessorFunc((int)PORTS.serialconsole, link.SendDataTo((int)PORTS.remote));
+            link.AddPacketProcessorFunc((int)PORTS.remote1,
+                //link.SendDataTo((int)PORTS.remote2);
+                link.SendDataTo((int)PORTS.serialconsole)
+            );
+            link.AddPacketProcessorFunc((int)PORTS.bootcommander, 
+                //link.SendDataTo((int)PORTS.remote1);
+                link.SendDataTo((int)PORTS.remote1)
+            );
+            link.AddPacketProcessorFunc((int)PORTS.serialconsole,
+                link.SendDataTo((int)PORTS.bootcommander)
+            );
 
             return link;
         }
@@ -132,15 +172,9 @@ namespace PortMediator
 
         private void ProcessData(byte[] data)
         {
-            processPacket(data);
-            foreach(var b in data)
-            {
-                Console.Write(b + " ");
-            }
-            Console.WriteLine("");
-            Console.WriteLine(Encoding.ASCII.GetString(data));
+            //processPacket(data);
 
-            /*foreach (byte b in data)
+            foreach (byte b in data)
             {
                 if (!packetInProgress)
                 {
@@ -158,9 +192,15 @@ namespace PortMediator
                         packetInProgress = false;
                         packetLength = 0;
                         bytesReceived = 0;
+                        foreach (var pb in packet)
+                        {
+                            Console.Write(pb + " ");
+                        }
+                        Console.WriteLine("");
+                        //Console.WriteLine(Encoding.ASCII.GetString(packet));
                     }
                 }
-            }*/
+            }
         }
 
         private Action<byte[]> processPacket = null;

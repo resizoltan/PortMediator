@@ -15,6 +15,7 @@ namespace PortMediator
 
         public override void SendData(byte[] data)
         {
+           // data = new byte[3] { 2, 0xff, 0 };
             serialPort_.Write(data, 0, data.Length);
         }
 
@@ -47,7 +48,7 @@ namespace PortMediator
             serialPort_.Close();
         }
 
-        public async override Task<bool> StartReading()
+        public override Task<bool> StartReading()
         {
             byte[] buffer = new byte[serialPort_.ReadBufferSize];
             Action readNextByte = null;
@@ -76,7 +77,7 @@ namespace PortMediator
                 }
             };
             readNextByte();
-            return success;
+            return Task.FromResult(success);
         }
     }
 }
