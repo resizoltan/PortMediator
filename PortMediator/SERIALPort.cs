@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace PortMediator
 {
-    class SERIALPort : Port
+    class SERIALPort : Client
     {
         SerialPort serialPort_ = new SerialPort();
 

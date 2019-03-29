@@ -13,12 +13,19 @@ namespace PortMediator
         bool canReceive;
         public string id { get; }
 
-        List<Port> availablePorts;
 
         public abstract Task<bool> StartPeripheral();
         public abstract Task<bool> StopPeripheral();
 
+        public abstract Task<bool> OpenPort(Client client);
+        public abstract void ClosePort(Client client);
+        public abstract Task<bool> StartReadingPort(Client client);
+        public abstract void StopReadingPort(Client client);
+
+        public abstract void SendData(Client client, byte[] data);
+
         public event EventHandler<PortReceivedEventArgs> PortReceived;
+
 
     }
 
@@ -26,6 +33,6 @@ namespace PortMediator
 
     public class PortReceivedEventArgs : EventArgs
     {
-        public Port port { get; set; }
+        public Client port { get; set; }
     }
 }

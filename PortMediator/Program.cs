@@ -163,7 +163,7 @@ namespace PortMediator
 
     class PortHandler
     {
-        private Port port_;
+        private Client port_;
 
         private bool packetInProgress = false;
         private byte packetLength = 0;
@@ -213,13 +213,13 @@ namespace PortMediator
 
         
 
-        public PortHandler(Port port)
+        public PortHandler(Client port)
         {
             port_ = port;
             port_.DataReceived += (object sender, DataReceivedEventArgs eventArgs) => ProcessData(eventArgs.data);
         }
 
-        public PortHandler(Port port, Action<byte[]> packetProcessorFunc)
+        public PortHandler(Client port, Action<byte[]> packetProcessorFunc)
         {
             port_ = port;
             ProcessPacket = packetProcessorFunc;
@@ -256,7 +256,7 @@ namespace PortMediator
             name_ = name;
         }
 
-        public void AddPort(int ID, Port type)
+        public void AddPort(int ID, Client type)
         {
             ports.Add(ID, new PortHandler(type));
         }
