@@ -21,7 +21,7 @@ namespace PortMediator
         //static Dictionary<TYPE, byte> clientMap = new Dictionary<TYPE, Client> { { TYPE.MATLAB, MatlabClient } };
         const byte closeSignal = 0xfc;
 
-        Peripheral peripheral;
+        Peripheral.Port port;
         public TYPE type;
         public string name;
         public bool isOpen;
@@ -32,7 +32,14 @@ namespace PortMediator
 
         public void SendData(byte[] data)
         {
-            peripheral.SendData(this, data);
+            try
+            {
+                port.SendData(this, data);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Could not send data to client " + name + "on " + e.Source + ": " + e.Message);
+            }
         }
 
         public void OnDataReceived(byte[] data)
@@ -66,6 +73,12 @@ namespace PortMediator
             SendData(new byte[] { closeSignal });
         }
 
+        public void StartReading()
+        {
+            port.StartReading();
+        }
+
+        
     }
 
 }
