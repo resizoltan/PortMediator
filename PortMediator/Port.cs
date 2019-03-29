@@ -6,9 +6,20 @@ using System.Threading.Tasks;
 
 namespace PortMediator
 {
-    abstract class Port
+    abstract public class Port
     {
+        int type;
+        bool isOpen;
+        bool canSend;
+        bool canReceive;
+
         public event EventHandler<DataReceivedEventArgs> DataReceived;
+
+        public abstract Task<bool> OpenPort();
+        public abstract void ClosePort();
+        public abstract Task<bool> StartReadingPort();
+        public abstract void StopReadingPort();
+
         public abstract void SendData(byte[] data);
         protected void OnDataReceived(byte[] data)
         {
@@ -20,19 +31,18 @@ namespace PortMediator
                 handler(this, args);
             }
         }
-        public abstract Task<bool> OpenPort();
-        public abstract void ClosePort();
-        public abstract Task<bool> StartReading();
+
+        public class DataReceivedEventArgs : EventArgs
+        {
+            public Port port { get; set; }
+            public byte[] data { get; set; }
+        }
+
+        public int Identify(byte[] fromData)
+        {
+            new NotImplementedException();
+            return 0;
+        }
     }
 
-    public class DataReceivedEventArgs : EventArgs
-    {
-        public byte[] data { get; set; }
-
-    }
-
-    class DataProcessor
-    {
-
-    }
 }
