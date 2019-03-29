@@ -9,8 +9,13 @@ namespace PortMediator
 {
     class SerialPeripheral : Peripheral
     {
-        public static string[] comPorts { get; set; } = { "COM8", "COM13" };
-        private static int nextPortIndex = 0;
+        //public static string[] defaultPortNames { get; set; } = { "COM8", "COM13" };
+        public Dictionary<string, SerialPort> defaultPorts = new Dictionary<string, SerialPort>
+        {
+            ["COM8"] = new SerialPort("COM8"),
+            ["COM13"] = new SerialPort("COM13")
+        };
+        //private static int nextPortIndex = 0;
 
         Dictionary<Client, SerialPort> ports = new Dictionary<Client, SerialPort>();
 
@@ -27,44 +32,22 @@ namespace PortMediator
             }
         }
 
-        public override Task<bool> OpenPort(Client client)
+        public override Task<bool> OpenPort(string portID, Client client)
         {
-            Task<bool> openTask = OpenPort(client, comPorts[nextPortIndex]);
-            nextPortIndex++;
+            try
+            {
+                ports.Add(client, defaultPorts[portID]);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
             return openTask;
         }
 
-        public async Task<bool> OpenPort(Client client, string port)
+        public async Task<bool> OpenPort(string port)
         {
-            SerialPort serialPort = new SerialPort();
-            serialPort.PortName = port;
-            serialPort.BaudRate = 115200;
-            serialPort.Parity = Parity.None;
-            serialPort.ReadBufferSize = 100;
-            bool success = await Task<bool>.Run(() =>
-            {
-                bool isOpen = false;
-                try
-                {
-                    serialPort.Open();
-                    isOpen = serialPort.IsOpen;
-                }
-                catch(Exception e)
-                {
-                    Console.WriteLine("Serial: " + port + ": " + e.Message);
-                    Console.WriteLine("Could not open port to " + client.name + " of type " + client.type);
-                    isOpen = false;
-                }
-                return isOpen;
-
-            });
-            if (success)
-            {
-                serialPort.DiscardInBuffer();
-                serialPort.DiscardOutBuffer();
-            }
             
-            return success;
         }
 
         public override void SendData(Client client, byte[] data)
@@ -90,8 +73,8 @@ namespace PortMediator
                 byte[] buffer = new byte[port.ReadBufferSize];
                 Action StartReading = async delegate
                 {
-                    client.canSend = true;
-                    while (client.canSend)
+                    client.canReceive = true;
+                    while (client.canReceive)
                     {
                         if (port.IsOpen)
                         {
@@ -123,13 +106,42 @@ namespace PortMediator
 
         public override void StopReadingPort(Client client)
         {
-            client.canSend = false;
+            client.canReceive = false;
         }
 
         public override Task<bool> StartPeripheral()
         {
             isRunning = true;
-            return Task.FromResult(true);
+            Task<bool> openTask = Task<bool>.Factory.StartNew(delegate
+            {
+                bool success = true;
+                foreach (SerialPort port in defaultPorts.Values)
+                {
+                    port.BaudRate = 115200;
+                    port.Parity = Parity.None;
+                    port.ReadBufferSize = 100;
+
+                    try
+                    {
+                        port.Open();
+                        success &= port.IsOpen;
+                        if (port.IsOpen)
+                        {
+                            port.DiscardInBuffer();
+                            port.DiscardOutBuffer();
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Serial: " + port + ": " + e.Message);
+                        Console.WriteLine("Could not start port " + port);
+                        success = false;
+                    }
+                }
+                return success;
+            });
+
+            return openTask;
         }
 
         public override Task<bool> StopPeripheral()

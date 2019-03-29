@@ -35,7 +35,6 @@ namespace PortMediator
             peripheral.SendData(this, data);
         }
 
-
         public void OnDataReceived(byte[] data)
         {
             EventHandler<DataReceivedEventArgs> handler = DataReceived;

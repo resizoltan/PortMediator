@@ -55,6 +55,7 @@
     <Compile Include="MatlabClient.cs" />
     <Compile Include="Peripheral.cs" />
     <Compile Include="Client.cs" />
+    <Compile Include="Port.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SerialPeripheral.cs" />

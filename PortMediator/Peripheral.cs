@@ -15,9 +15,10 @@ namespace PortMediator
         public abstract Task<bool> StartPeripheral();
         public abstract Task<bool> StopPeripheral();
         public abstract void ClosePeripheral();
+        public abstract void WaitForConnectionRequest(string portID);
 
 
-        public abstract Task<bool> OpenPort(Client client);
+        public abstract Task<bool> OpenPort(string portName, Client client);
         public abstract void ClosePort(Client client);
         public abstract Task<bool> StartReadingPort(Client client);
         public abstract void StopReadingPort(Client client);
@@ -29,7 +30,7 @@ namespace PortMediator
 
     }
 
-
+    
 
     public class PortReceivedEventArgs : EventArgs
     {
