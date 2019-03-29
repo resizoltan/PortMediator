@@ -24,9 +24,9 @@ namespace PortMediator
         Peripheral peripheral;
         public TYPE type;
         public string name;
-        bool isOpen;
-        bool canSend;
-        bool canReceive;
+        public bool isOpen;
+        public bool canSend;
+        public bool canReceive;
 
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
@@ -36,7 +36,7 @@ namespace PortMediator
         }
 
 
-        protected void OnDataReceived(byte[] data)
+        public void OnDataReceived(byte[] data)
         {
             EventHandler<DataReceivedEventArgs> handler = DataReceived;
             if (handler != null)

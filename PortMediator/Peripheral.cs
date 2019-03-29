@@ -8,14 +8,14 @@ namespace PortMediator
 {
     abstract class Peripheral
     {
-        bool isOpen;
-        bool canSend;
-        bool canReceive;
+        protected bool isRunning;
         public string id { get; }
 
 
         public abstract Task<bool> StartPeripheral();
         public abstract Task<bool> StopPeripheral();
+        public abstract void ClosePeripheral();
+
 
         public abstract Task<bool> OpenPort(Client client);
         public abstract void ClosePort(Client client);
