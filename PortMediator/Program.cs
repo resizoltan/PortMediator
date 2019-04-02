@@ -64,30 +64,13 @@ namespace PortMediator
 
             public static Dictionary<Client.TYPE, List<Client.TYPE>> ConsoleToConsole = new Dictionary<Client.TYPE, List<Client.TYPE>>
             {
+                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MATLAB },
+                [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.CONSOLE },
+                [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.MATLAB },
                 [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.CONSOLE }
             };
         }
-       
-
-        //static void DataFlowRuleAllToAll(Client newClient)
-        //{
-        //    if (!dataDestinations.ContainsKey(newClient))
-        //    {
-        //        dataDestinations.Add(newClient, new List<Client>());
-        //        foreach (List<Client> clientList in clientsByType.Values)
-        //        {
-        //            foreach(Client client in clientList)
-        //            {
-        //                if(client != newClient)
-        //                {
-        //                    Channel newChannel
-        //                    dataDestinations[newClient].Add(client);
-        //                    dataDestinations[client].Add(newClient);
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
+      
 
         static void Run()
         {
@@ -116,10 +99,8 @@ namespace PortMediator
 
         static void AddClient(Client newClient)
         {
-            //List<Client.TYPE> subscribingClientTypes = dataFlowRules[newClient.type];
             foreach(List<Client> clientList in clientsByType.Values)
             {
-                //List<Client> subscribingClients = clientsByType[clientType];
                 foreach(Client client in clientList)
                 {
                     bool isSubscribingToNew = dataFlowRules[newClient.type].Contains(client.type);
@@ -145,45 +126,5 @@ namespace PortMediator
             }
             clientsByType[newClient.type].Add(newClient);
         }
-        //static void removeDataReceivedCallbacks()
-        //{
-        //    foreach (var destinationClients in dataDestinations)
-        //    {
-        //        Client sourceClient = destinationClients.Key;
-        //        foreach (Client destinationClient in destinationClients.Value)
-        //        {
-        //            try
-        //            {
-        //                sourceClient.DataReceived -= (object sender, DataReceivedEventArgs eventArgs) => { destinationClient.SendData(eventArgs.data); };
-        //            }
-        //            catch(Exception e)
-        //            {
-        //                Console.WriteLine("Error during removing SendDataFunc of " + destinationClient.name + " from " + sourceClient.name);
-        //                Console.WriteLine(e.Message);
-        //            }
-        //        }
-        //    }
-        //}
-
-        //static void addDataReceivedCallbacks()
-        //{
-        //    foreach(var destinationClients in dataDestinations)
-        //    {
-        //        Client sourceClient = destinationClients.Key;
-        //        foreach (Client destinationClient in destinationClients.Value)
-        //        {
-        //            try
-        //            {
-        //                sourceClient.DataReceived += (object sender, DataReceivedEventArgs eventArgs) => { destinationClient.SendData(eventArgs.data); };
-        //            }
-        //            catch (Exception e)
-        //            {
-        //                Console.WriteLine("Error during adding SendDataFunc of " + destinationClient.name + " to " + sourceClient.name);
-        //                Console.WriteLine(e.Message);
-        //            }
-        //        }
-        //    }
-        //}
-
     }
 }

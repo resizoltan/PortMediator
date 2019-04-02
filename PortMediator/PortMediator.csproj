@@ -54,6 +54,7 @@
     <Compile Include="BLEPort.cs" />
     <Compile Include="Channel.cs" />
     <Compile Include="Communication.cs" />
+    <Compile Include="ConsoleClient.cs" />
     <Compile Include="MatlabClient.cs" />
     <Compile Include="Peripheral.cs" />
     <Compile Include="Client.cs" />

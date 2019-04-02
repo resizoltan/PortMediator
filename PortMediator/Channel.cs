@@ -64,8 +64,9 @@ namespace PortMediator
             catch(Exception e)
             {
                 Console.WriteLine("Error occured in Channel.Client1Listener() during packet transfer from " + client1.name + " to " + client2.name);
-                Console.WriteLine("Error source:  " + e.Source);
-                Console.WriteLine("Error message: " + e.Message);
+                Console.WriteLine("\tError source:  " + e.Source);
+                Console.WriteLine("\tError message: " + e.Message);
+                Console.WriteLine("\tPacket discarded");
             }
         }
 
@@ -84,8 +85,9 @@ namespace PortMediator
                 catch (Exception e)
                 {
                     Console.WriteLine("Error occured in Channel.Client2Listener() during packet transfer from " + client1.name + " to " + client2.name);
-                    Console.WriteLine("Error source:  " + e.Source);
-                    Console.WriteLine("Error message: " + e.Message);
+                    Console.WriteLine("\tError source:  " + e.Source);
+                    Console.WriteLine("\tError message: " + e.Message);
+                    Console.WriteLine("\tPacket discarded");
                 }
             }
         }

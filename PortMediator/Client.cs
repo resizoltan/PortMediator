@@ -23,24 +23,20 @@ namespace PortMediator
         {
             [TYPE.UNIDENTIFIED] = "unidentified",
             [TYPE.MOUSE] = "mouse",
-            [TYPE.BOOTCOMMANDER] = "BootCommander",
-            [TYPE.MATLAB] = "Matlab",
-            [TYPE.CONSOLE] = "Console"
+            [TYPE.BOOTCOMMANDER] = "bootcommander",
+            [TYPE.MATLAB] = "matlab",
+            [TYPE.CONSOLE] = "console"
         };
-        //static Dictionary<TYPE, byte> clientMap = new Dictionary<TYPE, Client> { { TYPE.MATLAB, MatlabClient } };
-        const byte closeSignal = 0xfc;
+        static readonly byte closeSignal = 0xfc;
 
-        Port port;
-        public TYPE type;
-        public string name;
-        Communication.Packet packetInReceiving = new Communication.Packet();
-        //public bool isOpen;
-        //public bool canSend;
-        //public bool canReceive;
+        protected Port port;
+        public TYPE type { get; }
+        public string name { get; set; }
+        protected Communication.Packet packetInReceiving = new Communication.Packet();
 
         public event EventHandler<PacketReceivedEventArgs> DataReceived;
 
-        public Client(TYPE type, string name, Port port)
+        protected Client(TYPE type, string name, Port port)
         {
             this.type = type;
             this.name = name;
@@ -49,51 +45,20 @@ namespace PortMediator
             this.port.Closes += SendCloseSignal;
         }
 
-        public void SendData(Communication.Packet packet)
+        public static Client CreateNew(TYPE type, string name, Port port)
         {
-            try
+            Client client = null;
+            switch (type)
             {
-                port.SendData(packet.xcp);
+                case TYPE.MATLAB:
+                    client = new MatlabClient(name, port);
+                    break;
+                default:
+                    client = new Client(type, name, port);
+                    break;
             }
-            catch(Exception e)
-            {
-                Console.WriteLine("Could not send data to client " + name + "on " + e.Source + ": " + e.Message);
-            }
+            return client;
         }
-
-        public void OnDataReceived(byte[] data)
-        {
-            if (packetInReceiving.IsEmpty())
-            {
-                packetInReceiving = Communication.Packet.CreateFromXCP(data);
-            }
-            else
-            {
-                packetInReceiving.Add(data);
-            }
-
-            if (packetInReceiving.IsFinished())
-            {
-                EventHandler<PacketReceivedEventArgs> handler = DataReceived;
-                if (handler != null)
-                {
-                    PacketReceivedEventArgs args = new PacketReceivedEventArgs();
-                    args.packet = packetInReceiving;
-                    packetInReceiving.Clear();
-                    handler(this, args);
-                }
-                else
-                {
-                    //might throw exception here
-                }
-            }        
-        }
-
-        //public class DataReceivedEventArgs : EventArgs
-        //{
-        //    public Client port { get; set; }
-        //    public byte[] data { get; set; }
-        //}
 
         public static TYPE Identify(byte id)
         {
@@ -112,22 +77,54 @@ namespace PortMediator
 
         }
 
-        public void SendCloseSignal(object sender, Port.CloseEventArgs eventArgs)
-        {
-            port.SendData(new byte[] { closeSignal });
-        }
-
         public void StartReading()
         {
             port.StartReading();
         }
 
-        public void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
+        public virtual void SendData(Communication.Packet packet)
         {
-            OnDataReceived(eventArgs.data);
+            try
+            {
+                port.SendData(packet.rawData);
+            }
+            catch(Exception e)
+            {
+                e.Source = "Client.SendData() of client " + name + " -> " + e.Source;
+                throw e;
+            }
         }
 
-        
+        public void SendCloseSignal(object sender, Port.CloseEventArgs eventArgs)
+        {
+            port.SendData(new byte[] { closeSignal });
+        }
+
+        public virtual void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
+        {
+            packetInReceiving.Add(eventArgs.data);
+            OnPacketReadyForTransfer(packetInReceiving);
+            packetInReceiving.Clear();
+        }
+
+        public virtual void OnPacketReadyForTransfer(Communication.Packet packet)
+        {
+            EventHandler<PacketReceivedEventArgs> handler = DataReceived;
+            if (handler != null)
+            {
+                PacketReceivedEventArgs args = new PacketReceivedEventArgs();
+                args.packet = packet;
+                handler(this, args);
+            }
+            else
+            {
+                /*cannot catch this exception, function is on a callback stack*/
+                //Exception e = new Exception("DataReceived event handler is null, packet discarded");
+                //e.Source = "Client.OnPacketReadyForTransfer() of client " + name;
+                //throw e;
+            }
+        }
+
     }
 
 }

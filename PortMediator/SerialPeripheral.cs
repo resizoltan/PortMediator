@@ -35,7 +35,7 @@ namespace PortMediator
             }
             catch (Exception e)
             {
-                e.Source = GetID();
+                e.Source = "PortMediator.SerialPort.Close() of " + GetID() + " -> " + e.Source;
                 throw e;
             }
         }
@@ -59,7 +59,7 @@ namespace PortMediator
             }
             catch (Exception e)
             {
-                e.Source = GetID();
+                e.Source = "PortMediator.SerialPort.Open() of " + GetID() + " -> " + e.Source;
                 success = false;
                 throw e;
             }
@@ -74,7 +74,7 @@ namespace PortMediator
             }
             catch (Exception e)
             {
-                e.Source = GetID();
+                e.Source = "PortMediator.SerialPort.SendData() of " + GetID() + " -> " + e.Source;
                 throw e;
             }
         }
@@ -108,7 +108,7 @@ namespace PortMediator
                 }
                 catch (Exception e)
                 {
-                    e.Source = GetID();
+                    e.Source = "PortMediator.SerialPort.StartReading() of " + GetID() + " -> " + e.Source;
                     success = false;
                     throw e;
                 }
@@ -170,7 +170,7 @@ namespace PortMediator
                 }
                 catch (Exception e)
                 {
-                    e.Source = GetID();
+                    e.Source = "PortMediator.SerialPort.WaitForConnectionRequest() of " + GetID() + " -> " + e.Source;
                     success = false;
                     throw e;
                 }

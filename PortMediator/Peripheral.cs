@@ -58,12 +58,9 @@ namespace PortMediator
                 try
                 {
                     Client.TYPE type = Client.Identify((byte)(data[0] - Encoding.ASCII.GetBytes("0")[0]));
-                    if (type != Client.TYPE.UNIDENTIFIED)
-                    {
-                        string name = Client.typenames[type] + "_" + Encoding.ASCII.GetString(data, 1, 2);
-                        Client newClient = new Client(type, name, this);
-                        hostingPeripheral.OnNewClient(newClient);
-                    }
+                    string name = Client.typenames[type] + "_" + Encoding.ASCII.GetString(data, 1, 2);
+                    Client newClient = Client.CreateNew(type, name, this);
+                    hostingPeripheral.OnNewClient(newClient);
                 }
                 catch(Exception e)
                 {

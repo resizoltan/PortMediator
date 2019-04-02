@@ -43,7 +43,7 @@ namespace PortMediator
             }
             else
             {
-                byte commandByte = (byte)(data[0] - Encoding.ASCII.GetBytes("0")[0]);
+                byte commandByte = (byte)(data[0] - '0');
                 if (commandByte < (byte)COMMAND.COMMANDCOUNT)
                 {
                     command = (COMMAND)data[0];
@@ -87,6 +87,7 @@ namespace PortMediator
         }
 
         //unsafe conversion to byte!
+        //converting from characters!
         public class Packet
         {
             private List<byte> data = new List<byte>();
@@ -132,22 +133,25 @@ namespace PortMediator
                     {
                         data = new List<byte>();
                     }
-                    else if(xcpBytes.Length == 1)
-                    {
-                        if(xcpBytes[0] != 0)
-                        {
-                            //might raise exception here
-                        }
-                        data = new List<byte>();
-                    }
+                    //else if(xcpBytes.Length == 1)
+                    //{
+                    //    if(xcpBytes[0] != 0)
+                    //    {
+                    //        //might raise exception here
+                    //    }
+                    //    data = new List<byte>();
+                    //}
                     else
                     {
                         isEmpty = false;
-                        packetLength = xcpBytes[0];
-                        int dataLength = xcpBytes.Length;
-                        byte[] dataBytes = new byte[dataLength];
-                        Array.Copy(xcpBytes, 1, dataBytes, 0, dataLength);
-                        data = dataBytes.ToList();
+                        packetLength = (byte)(xcpBytes[0]- Encoding.ASCII.GetBytes("0")[0]);
+                        int dataLength = xcpBytes.Length - 1;
+                        if(dataLength > 0)
+                        {
+                            byte[] dataBytes = new byte[dataLength];
+                            Array.Copy(xcpBytes, 1, dataBytes, 0, dataLength);
+                            data = dataBytes.ToList();
+                        }
                     }
                 }
             }
@@ -216,7 +220,7 @@ namespace PortMediator
                 {
                     answer = true;
                 }
-                else if(packetLength > data.Count)
+                else if(packetLength < data.Count)
                 {
                     //might raise exception here
                     answer = true;
