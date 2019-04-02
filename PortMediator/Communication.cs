@@ -34,25 +34,28 @@ namespace PortMediator
         public static COMMAND GetCommand(Packet packet)
         {
             COMMAND command = COMMAND.UNDEFINED;
-            byte[] data = packet.rawData;
-            if (data.Length == 0)
+            if (packet.hasCommand)
             {
-                Exception e = new Exception("Can't determine command, packet size is 0");
-                e.Source = "Communication.GetCommand()";
-                throw e;
-            }
-            else
-            {
-                byte commandByte = (byte)(data[0] - '0');
-                if (commandByte < (byte)COMMAND.COMMANDCOUNT)
+                byte[] data = packet.rawData;
+                if (data.Length == 0)
                 {
-                    command = (COMMAND)data[0];
+                    Exception e = new Exception("Can't determine command, packet size is 0");
+                    e.Source = "Communication.GetCommand()";
+                    throw e;
                 }
                 else
                 {
-                    Exception e = new Exception("Command " + commandByte + " doesn't exist");
-                    e.Source = "Communication.GetCommand()";
-                    throw e;
+                    byte commandByte = (byte)(data[0] - '0');
+                    if (commandByte < (byte)COMMAND.COMMANDCOUNT)
+                    {
+                        command = (COMMAND)data[0];
+                    }
+                    else
+                    {
+                        Exception e = new Exception("Command " + commandByte + " doesn't exist");
+                        e.Source = "Communication.GetCommand()";
+                        throw e;
+                    }
                 }
             }
             return COMMAND.UNDEFINED;
@@ -93,13 +96,32 @@ namespace PortMediator
             private List<byte> data = new List<byte>();
             private int packetLength = -1;
             private bool isEmpty = true;
+            public bool hasCommand { get; set; } = false;
 
-            public static Packet CreateFromXCP(byte[] xcpBytes)
+            public static Packet CreateNewFromXCP(byte[] xcpBytes, bool hasCommand)
             {
                 Packet packet = new Packet();
                 packet.xcp = xcpBytes;
+                packet.hasCommand = hasCommand;
                 return packet;
             }
+
+            public static Packet CreateNewFromXCPBootCommander(byte[] xcpBytes, bool hasCommand)
+            {
+                Packet packet = new Packet();
+                packet.xcpBootCommander = xcpBytes;
+                packet.hasCommand = hasCommand;
+                return packet;
+            }
+
+            public static Packet CreateNewFromRaw(byte[] rawData, bool hasCommand)
+            {
+                Packet packet = new Packet();
+                packet.rawData = rawData;
+                packet.hasCommand = hasCommand;
+                return packet;
+            }
+
 
             public int PacketLength {
                 get

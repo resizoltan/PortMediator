@@ -53,6 +53,9 @@ namespace PortMediator
                 case TYPE.MATLAB:
                     client = new MatlabClient(name, port);
                     break;
+                case TYPE.CONSOLE:
+                    client = new ConsoleClient(name, port);
+                    break;
                 default:
                     client = new Client(type, name, port);
                     break;
@@ -102,12 +105,12 @@ namespace PortMediator
 
         public virtual void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
         {
-            packetInReceiving.Add(eventArgs.data);
+            packetInReceiving = Communication.Packet.CreateNewFromRaw(eventArgs.data, false);
             OnPacketReadyForTransfer(packetInReceiving);
             packetInReceiving.Clear();
         }
 
-        public virtual void OnPacketReadyForTransfer(Communication.Packet packet)
+        public void OnPacketReadyForTransfer(Communication.Packet packet)
         {
             EventHandler<PacketReceivedEventArgs> handler = DataReceived;
             if (handler != null)

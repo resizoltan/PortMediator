@@ -37,7 +37,7 @@ namespace PortMediator
 
             channels = new List<Channel>();
 
-            dataFlowRules = DataFlowRules.CreateNew(DataFlowRules.ConsoleToConsole);
+            dataFlowRules = DataFlowRules.CreateNew(DataFlowRules.ConsoleAndMatlab);
 
         }
         static class DataFlowRules
@@ -62,7 +62,7 @@ namespace PortMediator
                 }
             }
 
-            public static Dictionary<Client.TYPE, List<Client.TYPE>> ConsoleToConsole = new Dictionary<Client.TYPE, List<Client.TYPE>>
+            public static Dictionary<Client.TYPE, List<Client.TYPE>> ConsoleAndMatlab = new Dictionary<Client.TYPE, List<Client.TYPE>>
             {
                 [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MATLAB },
                 [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.CONSOLE },

@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace PortMediator
 {
-    class MatlabClient : Client
+    class BootCommanderClient : Client
     {
-        public MatlabClient(string name, Port port):base(TYPE.MATLAB, name, port)
+        public BootCommanderClient(string name, Port port) : base(TYPE.BOOTCOMMANDER, name, port)
         {
 
         }
@@ -17,7 +17,7 @@ namespace PortMediator
         {
             try
             {
-                port.SendData(packet.xcp);
+                port.SendData(packet.xcpBootCommander);
             }
             catch (Exception e)
             {
@@ -26,12 +26,12 @@ namespace PortMediator
             }
         }
 
-       
+
         public override void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
         {
             if (packetInReceiving.IsEmpty())
             {
-                packetInReceiving = Communication.Packet.CreateNewFromXCP(eventArgs.data, true);
+                packetInReceiving = Communication.Packet.CreateNewFromXCPBootCommander(eventArgs.data, false);
             }
             else
             {
@@ -44,5 +44,6 @@ namespace PortMediator
                 packetInReceiving.Clear();
             }
         }
+
     }
 }

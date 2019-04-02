@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace PortMediator
 {
-    class MatlabClient : Client
+    class MouseClient : Client
     {
-        public MatlabClient(string name, Port port):base(TYPE.MATLAB, name, port)
+        public MouseClient(string name, Port port) : base(TYPE.MOUSE, name, port)
         {
 
         }
@@ -26,7 +26,7 @@ namespace PortMediator
             }
         }
 
-       
+
         public override void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
         {
             if (packetInReceiving.IsEmpty())
