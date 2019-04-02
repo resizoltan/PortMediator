@@ -3,330 +3,187 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
+
 
 namespace PortMediator
 {
     class Program
     {
+        //static Program program = new Program();
+
+        static Peripheral serialPeripheral = new SerialPeripheral();
+
+        static Dictionary<Client.TYPE, List<Client>> clientsByType = null;
+        static List<Channel> channels = null;
+        static Dictionary<Client.TYPE, List<Client.TYPE>> dataFlowRules = null;
+        //static Dictionary<Client, List<Client>> dataDestinations = new Dictionary<Client, List<Client>>();
+        //static Dictionary<Client, Action<byte[]>> dataListeners = new Dictionary<Client, Action<byte[]>>();
+        static Action<Client> dataFlowAddClient = null;
+
         static void Main(string[] args)
         {
-            string userInput;
+            Program.Init();
+            Program.Run();
+            
+        }
 
-            Console.WriteLine("Port Mediator");
-            Console.WriteLine("Activating default link");
-            Link link = CreateWaldlaeuferLink();
-            Task<bool> openLinkTask = link.Open();
-            try
+        static void Init()
+        {
+            clientsByType = new Dictionary<Client.TYPE, List<Client>>();
+            for (int type = 0; type < (int)Client.TYPE.TYPECOUNT; type++)
             {
-                openLinkTask.Wait();
+                clientsByType.Add((Client.TYPE)type, new List<Client>());
             }
-            catch (AggregateException e)
-            {
-                Console.WriteLine("ERROR in main: " + e.Message);
-            }
-            if (openLinkTask.Status == TaskStatus.RanToCompletion)
-            {
-                if(openLinkTask.Result == true)
-                {
-                    Task<bool> activateLinkTask = link.Activate();
-                    try
-                    {
-                        activateLinkTask.Wait();
-                    }
-                    catch(AggregateException e)
-                    {
-                        Console.WriteLine("ERROR in main: " + e.Message);
-                    }
 
-                    if (activateLinkTask.Status == TaskStatus.RanToCompletion)
-                    {
-                        if (activateLinkTask.Result == true)
-                        {
-                            Console.WriteLine("Link active");
-                        }
-                        else
-                        {
-                            Console.WriteLine("ActivateLinkTask returned false");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("Failed to activate link: " + activateLinkTask.Status);
-                        foreach (var e in activateLinkTask.Exception.InnerExceptions)
-                        {
-                            Console.WriteLine("Exception: " + e.Message);
-                        }
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("OpenLinkTask returned false");
-                }
-            }
-            else
+            channels = new List<Channel>();
+
+            dataFlowRules = DataFlowRules.CreateNew(DataFlowRules.ConsoleToConsole);
+
+        }
+        static class DataFlowRules
+        {
+
+            public static Dictionary<Client.TYPE, List<Client.TYPE>> CreateNew(Dictionary<Client.TYPE, List<Client.TYPE>> initRules)
             {
-                Console.WriteLine("Failed to open link: " + openLinkTask.Status);
-                foreach(var e in openLinkTask.Exception.InnerExceptions)
+                Dictionary<Client.TYPE,List<Client.TYPE>> dataFlowRules = new Dictionary<Client.TYPE, List<Client.TYPE>>();
+                for (int type = 0; type < (int)Client.TYPE.TYPECOUNT; type++)
                 {
-                    Console.WriteLine("Exception: " + e.Message);
+                    dataFlowRules.Add((Client.TYPE)type, new List<Client.TYPE>());
+                }
+                Init(dataFlowRules, initRules);
+                return dataFlowRules;
+            }
+
+            public static void Init(Dictionary<Client.TYPE, List<Client.TYPE>> dataFlowRules, Dictionary<Client.TYPE, List<Client.TYPE>> initRules)
+            {
+                foreach(var rule in initRules)
+                {
+                    dataFlowRules[rule.Key] = rule.Value;
                 }
             }
 
-            TCPTestClient testClient = new TCPTestClient();
-            IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
-            IPAddress localIPAdress = null;
-            foreach (var ipa in ipHostInfo.AddressList)
+            public static Dictionary<Client.TYPE, List<Client.TYPE>> ConsoleToConsole = new Dictionary<Client.TYPE, List<Client.TYPE>>
             {
-                if (ipa.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    localIPAdress = ipa;
-                }
-            }
-            IPEndPoint hostEndPoint = new IPEndPoint(localIPAdress, 11000);
-            //testClient.StartClient(hostEndPoint);
+                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.CONSOLE }
+            };
+        }
+       
 
+        //static void DataFlowRuleAllToAll(Client newClient)
+        //{
+        //    if (!dataDestinations.ContainsKey(newClient))
+        //    {
+        //        dataDestinations.Add(newClient, new List<Client>());
+        //        foreach (List<Client> clientList in clientsByType.Values)
+        //        {
+        //            foreach(Client client in clientList)
+        //            {
+        //                if(client != newClient)
+        //                {
+        //                    Channel newChannel
+        //                    dataDestinations[newClient].Add(client);
+        //                    dataDestinations[client].Add(newClient);
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
+
+        static void Run()
+        {
+            Console.WriteLine("PortMediator v2");
+            Console.WriteLine("Opening peripherals...");
+            serialPeripheral.NewClientReceived += NewClientCallback;
+            serialPeripheral.StartPeripheral();
+            
+            string input;
             do
             {
-                userInput = Console.ReadLine();
-                //testClient.SendToHost(new byte[] { 0, 0, 0, 0, 0xff, 0 });
-                //testClient.SendToHost(Encoding.ASCII.GetBytes(userInput));
-                /*if(userInput == "send")
-                {
-                    link.SendDataTo((int)PORTS.remote);
-                }*/
-            } while (userInput != "exit");
+                input = Console.ReadLine();
+            } while (input != "exit");
+
+            serialPeripheral.ClosePeripheral();
         }
 
-        enum PORTS
+        static void NewClientCallback(object sender, NewClientEventArgs eventArgs)
         {
-            mouse,
-            matlab,
-            remote1,
-            remote2,
-            serialconsole,
-            bootcommander
+            Client newClient = eventArgs.client;
+            AddClient(newClient);
+            newClient.StartReading();
+
+            Console.WriteLine("New Client: " + newClient.name);
         }
 
-        private static Link CreateWaldlaeuferLink()
+        static void AddClient(Client newClient)
         {
-            Link link = new Link("Waldlaeufer");
-
-            link.AddPort((int)PORTS.mouse, new BLEPort("JDY-10-V2.4"));
-            //link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM8", 115200));
-            link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM13", 115200));
-            link.AddPort((int)PORTS.serialconsole, new SERIALPort("COM8", 115200));
-
-            bool comWithSerial = false;
-            Action<byte[]> serialProcessor = (byte[] data) =>
+            //List<Client.TYPE> subscribingClientTypes = dataFlowRules[newClient.type];
+            foreach(List<Client> clientList in clientsByType.Values)
             {
-                if (!comWithSerial)
+                //List<Client> subscribingClients = clientsByType[clientType];
+                foreach(Client client in clientList)
                 {
-                    link.AddPacketProcessorFunc((int)PORTS.mouse, link.SendDataTo((int)PORTS.serialconsole));
-                    comWithSerial = true;
-                }
-                link.SendDataTo((int)PORTS.mouse);
-            };
-
-            link.AddPacketProcessorFunc((int)PORTS.mouse, link.SendDataTo((int)PORTS.bootcommander));
-            link.AddPacketProcessorFunc((int)PORTS.bootcommander, link.SendDataTo((int)PORTS.mouse));
-            link.AddPacketProcessorFunc((int)PORTS.serialconsole, link.SendDataTo((int)PORTS.mouse));
-
-            return link;
-        }
-
-        private static Link CreateTCPTesterLink()
-        {
-            Link link = new Link("TCPTester");
-
-            link.AddPort((int)PORTS.remote1, new TCPPort(11000));
-            link.AddPort((int)PORTS.bootcommander, new SERIALPort("COM8", 115200));
-            link.AddPort((int)PORTS.serialconsole, new SERIALPort("COM13", 115200));
-
-            link.AddPacketProcessorFunc((int)PORTS.remote1,
-                //link.SendDataTo((int)PORTS.remote2);
-                link.SendDataTo((int)PORTS.serialconsole)
-            );
-            link.AddPacketProcessorFunc((int)PORTS.bootcommander, 
-                //link.SendDataTo((int)PORTS.remote1);
-                link.SendDataTo((int)PORTS.remote1)
-            );
-            link.AddPacketProcessorFunc((int)PORTS.serialconsole,
-                link.SendDataTo((int)PORTS.bootcommander)
-            );
-
-            return link;
-        }
-    }
-
-    class PortHandler
-    {
-        private Client port_;
-
-        private bool packetInProgress = false;
-        private byte packetLength = 0;
-        private byte[] packet = null;
-        private byte bytesReceived = 0;
-
-        private void ProcessData(byte[] data)
-        {
-            //processPacket(data);
-
-            foreach (byte b in data)
-            {
-                if (!packetInProgress)
-                {
-                    packetInProgress = true;
-                    packetLength = b;
-                    packet = new byte[packetLength + 1];
-                    packet[0] = packetLength;
-                }
-                else
-                {
-                    packet[++bytesReceived] = b;
-                    if (bytesReceived == packetLength)
+                    bool isSubscribingToNew = dataFlowRules[newClient.type].Contains(client.type);
+                    bool isNewSubscribing = dataFlowRules[client.type].Contains(newClient.type);
+                    Channel channel = null;
+                    if (isSubscribingToNew && isNewSubscribing)
                     {
-                        processPacket(packet);
-                        packetInProgress = false;
-                        packetLength = 0;
-                        bytesReceived = 0;
-                        foreach (var pb in packet)
-                        {
-                            Console.Write(pb + " ");
-                        }
-                        Console.WriteLine("");
-                        //Console.WriteLine(Encoding.ASCII.GetString(packet));
+                        channel = Channel.CreateTwoWay(newClient, client);
+                    }
+                    else if(isSubscribingToNew)
+                    {
+                        channel = Channel.CreateOneWay(client, newClient);
+                    }
+                    else if (isNewSubscribing)
+                    {
+                        channel = Channel.CreateOneWay(newClient, client);
+                    }
+                    if(channel != null)
+                    {
+                        channels.Add(channel);
                     }
                 }
             }
+            clientsByType[newClient.type].Add(newClient);
         }
+        //static void removeDataReceivedCallbacks()
+        //{
+        //    foreach (var destinationClients in dataDestinations)
+        //    {
+        //        Client sourceClient = destinationClients.Key;
+        //        foreach (Client destinationClient in destinationClients.Value)
+        //        {
+        //            try
+        //            {
+        //                sourceClient.DataReceived -= (object sender, DataReceivedEventArgs eventArgs) => { destinationClient.SendData(eventArgs.data); };
+        //            }
+        //            catch(Exception e)
+        //            {
+        //                Console.WriteLine("Error during removing SendDataFunc of " + destinationClient.name + " from " + sourceClient.name);
+        //                Console.WriteLine(e.Message);
+        //            }
+        //        }
+        //    }
+        //}
 
-        private Action<byte[]> processPacket = null;
-        public Action<byte[]> ProcessPacket {
-            set
-            {
-                processPacket = value;
-            }
-        }
-
-        
-
-        public PortHandler(Client port)
-        {
-            port_ = port;
-            port_.DataReceived += (object sender, DataReceivedEventArgs eventArgs) => ProcessData(eventArgs.data);
-        }
-
-        public PortHandler(Client port, Action<byte[]> packetProcessorFunc)
-        {
-            port_ = port;
-            ProcessPacket = packetProcessorFunc;
-        }
-
-        public Task<bool> OpenPort()
-        {
-            return port_.OpenPort();
-        }
-
-        public Task<bool> StartReading()
-        {
-            return port_.StartReading();
-        }
-
-        public void Close()
-        {
-            port_.ClosePort();
-        }
-
-        public void SendData(byte[] data)
-        {
-            port_.SendData(data);
-        }
-    }
-    class Link
-    {
-        string name_;
-        
-        protected Dictionary<int, PortHandler> ports = new Dictionary<int, PortHandler>();
-
-        public Link(string name)
-        {
-            name_ = name;
-        }
-
-        public void AddPort(int ID, Client type)
-        {
-            ports.Add(ID, new PortHandler(type));
-        }
-
-        public void AddPacketProcessorFunc(int portID, Action<byte[]> packetProcessorFunc)
-        {
-            try
-            {
-                PortHandler foundPort = ports[portID];
-                foundPort.ProcessPacket = packetProcessorFunc;
-            }
-            catch (KeyNotFoundException e)
-            {
-                Console.WriteLine("ERROR: Non-existent port requested");
-            }
-            catch (NullReferenceException e)
-            {
-                Console.WriteLine("ERROR: " + e.Message);
-            }
-        }
-
-        public Action<byte[]> SendDataTo(int portID)
-        {
-            
-            Action<byte[]> dataSenderFunc = null;
-            try
-            {
-                PortHandler foundPort = ports[portID];
-                dataSenderFunc = foundPort.SendData;
-            }
-            catch(KeyNotFoundException e)
-            {
-                Console.WriteLine("ERROR: Non-existent port requested");
-                dataSenderFunc = null;
-            }
-            catch(NullReferenceException e)
-            {
-                Console.WriteLine("ERROR: " + e.Message);
-            }
-
-            return dataSenderFunc;
-        }
-
-        public async Task<bool> Open()
-        {
-            bool success = true;
-            foreach(var port in ports)
-            {
-                success &= await port.Value.OpenPort();
-            }
-            return success;
-        }
-
-        public async Task<bool> Activate()
-        {
-            bool success = true;
-            foreach (var port in ports)
-            {
-                success &= await port.Value.StartReading();
-            }
-            return success;
-        }
-
-        public void Close()
-        {
-            foreach (var port in ports)
-            {
-                port.Value.Close();
-            }
-        }
+        //static void addDataReceivedCallbacks()
+        //{
+        //    foreach(var destinationClients in dataDestinations)
+        //    {
+        //        Client sourceClient = destinationClients.Key;
+        //        foreach (Client destinationClient in destinationClients.Value)
+        //        {
+        //            try
+        //            {
+        //                sourceClient.DataReceived += (object sender, DataReceivedEventArgs eventArgs) => { destinationClient.SendData(eventArgs.data); };
+        //            }
+        //            catch (Exception e)
+        //            {
+        //                Console.WriteLine("Error during adding SendDataFunc of " + destinationClient.name + " to " + sourceClient.name);
+        //                Console.WriteLine(e.Message);
+        //            }
+        //        }
+        //    }
+        //}
 
     }
 }

@@ -13,6 +13,7 @@ namespace PortMediator
         System.IO.Ports.SerialPort port;
         Task readingTask = null;
         CancellationTokenSource readingTaskCancellationTokenSource = new CancellationTokenSource();
+        CancellationTokenSource waitForConnectionRequestTaskCancellationTokenSource = new CancellationTokenSource();
 
 
         public SerialPort(string portName)
@@ -27,7 +28,10 @@ namespace PortMediator
         {
             try
             {
-                port.Close();
+                if (port.IsOpen)
+                {
+                    port.Close();
+                }
             }
             catch (Exception e)
             {
@@ -36,26 +40,30 @@ namespace PortMediator
             }
         }
 
-        public override Task<bool> Open(string portName, Client client)
+        public override Task<bool> Open(Peripheral serialPeripheral)
         {
-            Task<bool> openTask = Task<bool>.Run(delegate
+            hostingPeripheral = serialPeripheral;
+
+            bool success = false;
+            try
             {
-                bool success = false;
-                try
+                port.Open();
+                if (port.IsOpen)
                 {
-                    port.Open();
-                    success = port.IsOpen;
+                    Task<bool> waitingStarted = WaitForConnectionRequest();
+                    if(waitingStarted.IsCompleted && waitingStarted.Status == TaskStatus.RanToCompletion)
+                    {
+                        success = true;
+                    }
                 }
-                catch (Exception e)
-                {
-                    e.Source = GetID();
-                    success = false;
-                    throw e;
-                }
-                return success;
-            });
-           
-            return openTask;
+            }
+            catch (Exception e)
+            {
+                e.Source = GetID();
+                success = false;
+                throw e;
+            }
+            return Task<bool>.FromResult(success);
         }
 
         public override void SendData(byte[] data)
@@ -112,7 +120,7 @@ namespace PortMediator
 
         public override void StopReading(Client client)
         {
-            if((readingTask.Status == TaskStatus.Running) ||
+            if( (readingTask.Status == TaskStatus.Running) ||
                 (readingTask.Status == TaskStatus.WaitingForActivation) || 
                 (readingTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
                 (readingTask.Status == TaskStatus.WaitingToRun))
@@ -125,109 +133,85 @@ namespace PortMediator
         {
             return "SerialPort " + port.PortName;
         }
+
+        public override Task<bool> WaitForConnectionRequest()
+        {
+            Task<bool> WaitForConnectionRequestTask = Task<bool>.Factory.StartNew(delegate
+            {
+                bool success = true;
+                try
+                {
+                    byte[] buffer = new byte[port.ReadBufferSize];
+                    byte[] data = new byte[3];
+                    int bytesRead = 0;
+                    Action MonitorPort = async delegate
+                    {
+                        while (port.IsOpen || !waitForConnectionRequestTaskCancellationTokenSource.IsCancellationRequested)
+                        {
+                            int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 3);
+                            if(dataLength <= 3 - bytesRead)
+                            {
+                                Array.Copy(buffer, 0, data, bytesRead, dataLength);
+                                bytesRead += dataLength;
+                            }
+                            else
+                            {
+                                Array.Copy(buffer, 0, data, bytesRead, 3 - bytesRead);
+                                bytesRead = 3;
+                            }
+                            if(bytesRead == 3)
+                            {
+                                ConnectionRequested(data);
+                                break;
+                            }
+                        }
+                    };
+                    readingTask = Task.Factory.StartNew(MonitorPort, waitForConnectionRequestTaskCancellationTokenSource.Token);
+                }
+                catch (Exception e)
+                {
+                    e.Source = GetID();
+                    success = false;
+                    throw e;
+                }
+                return success;
+            });
+
+            return WaitForConnectionRequestTask;
+        }
     }
 
     class SerialPeripheral : Peripheral
     {
         
-        //public static string[] defaultPortNames { get; set; } = { "COM8", "COM13" };
         public Dictionary<string, SerialPort> defaultPorts = new Dictionary<string, SerialPort>
         {
             ["COM8"] = new SerialPort("COM8"),
             ["COM13"] = new SerialPort("COM13")
         };
-        //private static int nextPortIndex = 0;
-
-        Dictionary<Client, SerialPort> ports = new Dictionary<Client, SerialPort>();
-
-        public override void ClosePort(Client client)
-        {
-            try
-            {
-                client.SendCloseSignal();
-                ports[client].Close();
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine("Port to " + client.name + " of type " + client.type + " is already closed");
-            }
-        }
-
-        public override Task<bool> OpenPort(string portID, Client client)
-        {
-            try
-            {
-                ports.Add(client, defaultPorts[portID]);
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-            return openTask;
-        }
-
-        public async Task<bool> OpenPort(string port)
-        {
-            
-        }
-
-        public override void SendData(Client client, byte[] data)
-        {
-            try
-            {
-                ports[client].Write(data, 0, data.Length);
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine("Could not send data to " + client.name + " of type " + client.type);
-                Console.WriteLine(e.Message);
-            }
-        }
-
-
-        public override Task<bool> StartReadingPort(Client client)
-        {
-            
-        }
-
-        public override void StopReadingPort(Client client)
-        {
-            client.canReceive = false;
-        }
 
         public override Task<bool> StartPeripheral()
         {
             isRunning = true;
-            Task<bool> openTask = Task<bool>.Factory.StartNew(delegate
+            Task<bool> StartPeripheralTask = Task<bool>.Factory.StartNew(delegate
             {
                 bool success = true;
                 foreach (SerialPort port in defaultPorts.Values)
                 {
-                    port.BaudRate = 115200;
-                    port.Parity = Parity.None;
-                    port.ReadBufferSize = 100;
-
                     try
                     {
-                        port.Open();
-                        success &= port.IsOpen;
-                        if (port.IsOpen)
-                        {
-                            port.DiscardInBuffer();
-                            port.DiscardOutBuffer();
-                        }
+                        port.Open(this);
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine("Serial: " + port + ": " + e.Message);
-                        Console.WriteLine("Could not start port " + port);
+                        Console.WriteLine("Could not start port " + e.Source + ": " + e.Message);
                         success = false;
                     }
                 }
                 return success;
             });
 
-            return openTask;
+            return StartPeripheralTask;
         }
 
         public override Task<bool> StopPeripheral()
@@ -238,10 +222,10 @@ namespace PortMediator
 
         public override void ClosePeripheral()
         {
-            foreach(var port in ports)
+            foreach(SerialPort port in defaultPorts.Values)
             {
-                port.Key.SendCloseSignal();
-                port.Value.Close();
+                port.OnClose("Peripheral closed");
+                port.Close();
             }
         }
 

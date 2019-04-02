@@ -8,32 +8,77 @@ namespace PortMediator
 {
     public abstract class Port
     {
+        protected Peripheral hostingPeripheral = null;
 
-        public abstract Task<bool> Open(string portName, Client client);
+        public abstract Task<bool> Open(Peripheral serialPeripheral);
         public abstract void Close();
         public abstract Task<bool> StartReading();
+        public abstract Task<bool> WaitForConnectionRequest();
         public abstract void StopReading(Client client);
         public abstract string GetID();
 
         public abstract void SendData(byte[] data);
 
-        public event EventHandler<DataReceivedEventArgs> DataReceived;
+        public event EventHandler<BytesReceivedEventArgs> DataReceived;
+        //public event EventHandler<NewClientEventArgs> NewClientReceived;
+        public event EventHandler<CloseEventArgs> Closes;
 
         public void OnDataReceived(byte[] data)
         {
-            EventHandler<DataReceivedEventArgs> handler = DataReceived;
+            EventHandler<BytesReceivedEventArgs> handler = DataReceived;
             if (handler != null)
             {
-                DataReceivedEventArgs args = new DataReceivedEventArgs();
+                BytesReceivedEventArgs args = new BytesReceivedEventArgs();
                 args.data = data;
                 handler(this, args);
             }
         }
 
-        public class DataReceivedEventArgs : EventArgs
+
+        public void OnClose(string reason)
         {
-            public byte[] data { get; set; }
+            EventHandler<CloseEventArgs> handler = Closes;
+            if (handler != null)
+            {
+                CloseEventArgs args = new CloseEventArgs();
+                args.reason = reason;
+                handler(this, args);
+            }
         }
+
+        public class CloseEventArgs : EventArgs
+        {
+            public string reason { get; set; } = "unknown";
+        }
+
+        public void ConnectionRequested(byte[] data)
+        {
+            if(data.Length == 3)
+            {
+                try
+                {
+                    Client.TYPE type = Client.Identify((byte)(data[0] - Encoding.ASCII.GetBytes("0")[0]));
+                    if (type != Client.TYPE.UNIDENTIFIED)
+                    {
+                        string name = Client.typenames[type] + "_" + Encoding.ASCII.GetString(data, 1, 2);
+                        Client newClient = new Client(type, name, this);
+                        hostingPeripheral.OnNewClient(newClient);
+                    }
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("Error occured in Port.ConnectionRequested()");
+                    Console.WriteLine("Error source:  " + e.Source);
+                    Console.WriteLine("Error message: " + e.Message);
+                }
+                
+
+            }
+        }
+
+
+
+
 
         //public class SendFailedException : Exception
         //{
@@ -44,7 +89,7 @@ namespace PortMediator
         //}
     }
 
-    abstract class Peripheral
+    public abstract class Peripheral
     {
         
         protected bool isRunning;
@@ -53,21 +98,34 @@ namespace PortMediator
 
         public abstract Task<bool> StartPeripheral();
         public abstract Task<bool> StopPeripheral();
-        public abstract void ClosePeripheral();
-        public abstract void WaitForConnectionRequest(string portID);
+        public abstract void ClosePeripheral();        
 
-
-        
-
-        public event EventHandler<PortReceivedEventArgs> PortReceived;
-
-
+        public event EventHandler<NewClientEventArgs> NewClientReceived;
+        public void OnNewClient(Client client)
+        {
+            EventHandler<NewClientEventArgs> handler = NewClientReceived;
+            if (handler != null)
+            {
+                NewClientEventArgs args = new NewClientEventArgs();
+                args.client = client;
+                handler(this, args);
+            }
+        }
     }
 
-    
-
-    public class PortReceivedEventArgs : EventArgs
+    public class NewClientEventArgs : EventArgs
     {
-        public Client port { get; set; }
+        public Client client { get; set; }
     }
+
+    public class PacketReceivedEventArgs : EventArgs
+    {
+        public Communication.Packet packet { get; set; }
+    }
+
+    public class BytesReceivedEventArgs : EventArgs
+    {
+        public byte[] data { get; set; }
+    }
+
 }

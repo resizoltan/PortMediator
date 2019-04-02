@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Text;
+//using System.Threading.Tasks;
 
-namespace PortMediator
-{
-    class MatlabClient : Client
-    {
-    }
-}
+//namespace PortMediator
+//{
+//    class MatlabClient : Client
+//    {
+//    }
+//}

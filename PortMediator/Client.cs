@@ -8,7 +8,7 @@ namespace PortMediator
 {
     
 
-    public abstract class Client
+    public class Client
     {
         public enum TYPE
         {
@@ -16,25 +16,44 @@ namespace PortMediator
             MOUSE,
             BOOTCOMMANDER,
             MATLAB,
-            CONSOLE
+            CONSOLE,
+            TYPECOUNT
         }
+        public static Dictionary<TYPE, string> typenames = new Dictionary<TYPE, string>
+        {
+            [TYPE.UNIDENTIFIED] = "unidentified",
+            [TYPE.MOUSE] = "mouse",
+            [TYPE.BOOTCOMMANDER] = "BootCommander",
+            [TYPE.MATLAB] = "Matlab",
+            [TYPE.CONSOLE] = "Console"
+        };
         //static Dictionary<TYPE, byte> clientMap = new Dictionary<TYPE, Client> { { TYPE.MATLAB, MatlabClient } };
         const byte closeSignal = 0xfc;
 
-        Peripheral.Port port;
+        Port port;
         public TYPE type;
         public string name;
-        public bool isOpen;
-        public bool canSend;
-        public bool canReceive;
+        Communication.Packet packetInReceiving = new Communication.Packet();
+        //public bool isOpen;
+        //public bool canSend;
+        //public bool canReceive;
 
-        public event EventHandler<DataReceivedEventArgs> DataReceived;
+        public event EventHandler<PacketReceivedEventArgs> DataReceived;
 
-        public void SendData(byte[] data)
+        public Client(TYPE type, string name, Port port)
+        {
+            this.type = type;
+            this.name = name;
+            this.port = port;
+            this.port.DataReceived += ProcessReceivedData;
+            this.port.Closes += SendCloseSignal;
+        }
+
+        public void SendData(Communication.Packet packet)
         {
             try
             {
-                port.SendData(this, data);
+                port.SendData(packet.xcp);
             }
             catch(Exception e)
             {
@@ -44,38 +63,68 @@ namespace PortMediator
 
         public void OnDataReceived(byte[] data)
         {
-            EventHandler<DataReceivedEventArgs> handler = DataReceived;
-            if (handler != null)
+            if (packetInReceiving.IsEmpty())
             {
-                DataReceivedEventArgs args = new DataReceivedEventArgs();
-                args.data = data;
-                handler(this, args);
+                packetInReceiving = Communication.Packet.CreateFromXCP(data);
             }
-        }
-
-        public class DataReceivedEventArgs : EventArgs
-        {
-            public Client port { get; set; }
-            public byte[] data { get; set; }
-        }
-
-        public TYPE Identify(byte[] fromData)
-        {
-            if (fromData.Length > 0)
+            else
             {
-                type = (TYPE)fromData.First();
+                packetInReceiving.Add(data);
             }
-            return type;
+
+            if (packetInReceiving.IsFinished())
+            {
+                EventHandler<PacketReceivedEventArgs> handler = DataReceived;
+                if (handler != null)
+                {
+                    PacketReceivedEventArgs args = new PacketReceivedEventArgs();
+                    args.packet = packetInReceiving;
+                    packetInReceiving.Clear();
+                    handler(this, args);
+                }
+                else
+                {
+                    //might throw exception here
+                }
+            }        
         }
 
-        public void SendCloseSignal()
+        //public class DataReceivedEventArgs : EventArgs
+        //{
+        //    public Client port { get; set; }
+        //    public byte[] data { get; set; }
+        //}
+
+        public static TYPE Identify(byte id)
         {
-            SendData(new byte[] { closeSignal });
+            TYPE t = TYPE.UNIDENTIFIED;
+            if (id < (byte)TYPE.TYPECOUNT)
+            {
+                t = (TYPE)id;
+            }
+            else
+            {
+                Exception e = new Exception("Client type " + id + " doesn't exist");
+                e.Source = "Client.Identify()";
+                throw e;
+            }
+            return t;
+
+        }
+
+        public void SendCloseSignal(object sender, Port.CloseEventArgs eventArgs)
+        {
+            port.SendData(new byte[] { closeSignal });
         }
 
         public void StartReading()
         {
             port.StartReading();
+        }
+
+        public void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
+        {
+            OnDataReceived(eventArgs.data);
         }
 
         
