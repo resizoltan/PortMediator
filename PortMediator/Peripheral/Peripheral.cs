@@ -3,12 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace PortMediator
 {
     public abstract class Port
     {
         protected Peripheral hostingPeripheral = null;
+
+        protected Task readingTask = null;
+        protected CancellationTokenSource readingTaskCancellationTokenSource = new CancellationTokenSource();
+        protected CancellationTokenSource waitForConnectionRequestTaskCancellationTokenSource = new CancellationTokenSource();
 
         public abstract Task<bool> Open(Peripheral serialPeripheral);
         public abstract void Close();

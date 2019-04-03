@@ -11,9 +11,7 @@ namespace PortMediator
     public class SerialPort : Port
     {
         System.IO.Ports.SerialPort port;
-        Task readingTask = null;
-        CancellationTokenSource readingTaskCancellationTokenSource = new CancellationTokenSource();
-        CancellationTokenSource waitForConnectionRequestTaskCancellationTokenSource = new CancellationTokenSource();
+       
 
 
         public SerialPort(string portName)

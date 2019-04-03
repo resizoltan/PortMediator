@@ -12,6 +12,50 @@ using Windows.Devices.Bluetooth.GenericAttributeProfile;
 
 namespace PortMediator
 {
+    class BLEPort : Port
+    {
+        GattCharacteristic characteristic = null;
+        T
+
+        public override string GetID()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<bool> Open(Peripheral serialPeripheral)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Close()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<bool> WaitForConnectionRequest()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<bool> StartReading()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void StopReading(Client client)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void SendData(byte[] data)
+        {
+            throw new NotImplementedException();
+        }
+
+
+    }
+
+
     class BLEPeripheral : Peripheral
     {
         BluetoothLEAdvertisementWatcher watcher = null;

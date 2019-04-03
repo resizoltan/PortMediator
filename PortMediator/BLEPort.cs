@@ -13,7 +13,7 @@ using System.Threading;
 
 namespace PortMediator
 {
-    class BLEPort : Client
+    class BLEPort_old : Client
     {
         BluetoothLEAdvertisementWatcher bleWatcher_ = null;
 
