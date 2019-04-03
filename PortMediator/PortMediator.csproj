@@ -58,8 +58,10 @@
     <Compile Include="Client\ConsoleClient.cs" />
     <Compile Include="Client\MatlabClient.cs" />
     <Compile Include="Client\MouseClient.cs" />
+    <Compile Include="Peripheral\BLEPeripheral.cs" />
     <Compile Include="Peripheral\Peripheral.cs" />
     <Compile Include="Client\Client.cs" />
+    <Compile Include="Peripheral\TCPPeripheral.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Peripheral\SerialPeripheral.cs" />

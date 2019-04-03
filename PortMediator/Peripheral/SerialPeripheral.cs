@@ -184,7 +184,7 @@ namespace PortMediator
     class SerialPeripheral : Peripheral
     {
         
-        public Dictionary<string, SerialPort> defaultPorts = new Dictionary<string, SerialPort>
+        private Dictionary<string, SerialPort> defaultPorts = new Dictionary<string, SerialPort>
         {
             ["COM8"] = new SerialPort("COM8"),
             ["COM13"] = new SerialPort("COM13")
