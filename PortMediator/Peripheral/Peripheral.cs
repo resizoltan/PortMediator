@@ -20,7 +20,6 @@ namespace PortMediator
         public abstract void SendData(byte[] data);
 
         public event EventHandler<BytesReceivedEventArgs> DataReceived;
-        //public event EventHandler<NewClientEventArgs> NewClientReceived;
         public event EventHandler<CloseEventArgs> Closes;
 
         public void OnDataReceived(byte[] data)
