@@ -57,9 +57,9 @@ namespace PortMediator
             public string reason { get; set; } = "unknown";
         }
 
-        public void ConnectionRequested(byte[] data)
+        public void ConnectionRequested(Port onPort, byte[] data)
         {
-            if(data.Length == 3)
+            if(data.Length == connectionRequestMessageLength)
             {
                 try
                 {
@@ -73,10 +73,10 @@ namespace PortMediator
                     Console.WriteLine("Error occured in Port.ConnectionRequested()");
                     Console.WriteLine("Error source:  " + e.Source);
                     Console.WriteLine("Error message: " + e.Message);
+                    onPort.WaitForConnectionRequest();
                 }
-                
-
             }
+            onPort.WaitForConnectionRequest();
         }
 
 

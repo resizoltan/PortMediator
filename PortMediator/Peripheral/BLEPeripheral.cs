@@ -54,7 +54,7 @@ namespace PortMediator
 
         public override void Close()
         {
-            throw new NotImplementedException();
+            device.Dispose(); //what happens if there are other references to this device in other BLEPorts?
         }
 
         public override Task<bool> WaitForConnectionRequest()
@@ -70,9 +70,8 @@ namespace PortMediator
             dataReader.ReadBytes(data);
             if(data.Length == connectionRequestMessageLength)
             {
-                ConnectionRequested(data);
+                ConnectionRequested(this, data);
                 characteristic.ValueChanged -= WaitingForConnectionCallback;
-                characteristic.ValueChanged += BLEDataReceived;
             }
         }
 
@@ -86,17 +85,62 @@ namespace PortMediator
 
         public override Task<bool> StartReading()
         {
-            throw new NotImplementedException();
+            try
+            {
+                characteristic.ValueChanged += BLEDataReceived;
+            }
+            catch(Exception e)
+            {
+                e.Source = "BLEPort.StartReading() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
+            return Task.FromResult(true);
         }
 
         public override void StopReading(Client client)
         {
-            throw new NotImplementedException();
+            try
+            {
+                characteristic.ValueChanged -= BLEDataReceived;
+            }
+            catch (Exception e)
+            {
+                e.Source = "BLEPort.StopReading() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
         }
 
         public override void SendData(byte[] data)
         {
-            throw new NotImplementedException();
+            try
+            {
+                DataWriter dataWriter = new DataWriter();
+                Action sendNextSlice = null; //action for the slice by slice transfer of data to the bluetooth module
+                int bytesSent = 0;
+                int maxSliceSize = 20; //empirically determined maximum (index out of array bonds exception in gattCharacteristic_.WriteValueAsync(...) for higher values)
+                sendNextSlice = async delegate
+                {
+                    int sliceSize = ((data.Length - bytesSent) > maxSliceSize) ?    //if   more bytes remain than the maximum ble msg size
+                                    maxSliceSize :                                  //     send maximum msg size amount of bytes
+                                    (data.Length - bytesSent);                      //else send remaining bytes
+                    byte[] slice = new byte[sliceSize];
+                    System.Buffer.BlockCopy(data, bytesSent, slice, 0, sliceSize);  //copy the respective bytes from data to a new array called slice
+                    dataWriter.WriteBytes(slice);
+                    await characteristic.WriteValueAsync(dataWriter.DetachBuffer()); //send data slice to the bluetooth module
+                    bytesSent += sliceSize;
+                    if (bytesSent < data.Length)
+                    {
+                        sendNextSlice(); //repeat process until whole data is transmitted
+                    }
+                };
+                sendNextSlice(); //transmit first slice
+            }
+            catch(Exception e)
+            {
+                e.Source = "BLEPort.SendData() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
+           
         }
 
 
