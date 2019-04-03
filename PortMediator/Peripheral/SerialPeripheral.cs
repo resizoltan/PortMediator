@@ -12,8 +12,6 @@ namespace PortMediator
     {
         System.IO.Ports.SerialPort port;
        
-
-
         public SerialPort(string portName)
         {
             port = new System.IO.Ports.SerialPort(portName);
@@ -38,37 +36,32 @@ namespace PortMediator
             }
         }
 
-        public override Task<bool> Open(Peripheral serialPeripheral)
+        public override void Open(Peripheral serialPeripheral)
         {
             hostingPeripheral = serialPeripheral;
 
-            bool success = false;
             try
             {
                 port.Open();
-                if (port.IsOpen)
-                {
-                    Task<bool> waitingStarted = WaitForConnectionRequest();
-                    if(waitingStarted.IsCompleted && waitingStarted.Status == TaskStatus.RanToCompletion)
-                    {
-                        success = true;
-                    }
-                }
+                StartWaitingForConnectionRequest();
+
             }
             catch (Exception e)
             {
                 e.Source = "PortMediator.SerialPort.Open() of " + GetID() + " -> " + e.Source;
-                success = false;
                 throw e;
             }
-            return Task<bool>.FromResult(success);
         }
 
-        public override void SendData(byte[] data)
+        public override Task SendData(byte[] data)
         {
             try
             {
-                port.Write(data, 0, data.Length);
+                Task writeTask = Task.Factory.StartNew(delegate
+                {
+                    port.Write(data, 0, data.Length);
+                });
+                return writeTask;
             }
             catch (Exception e)
             {
@@ -77,43 +70,46 @@ namespace PortMediator
             }
         }
 
-        public override Task<bool> StartReading()
+        public override void StartReading()
         {
-            Task<bool> startReadingTask = Task<bool>.Factory.StartNew(delegate
+
+            try
             {
-                bool success = true;
-                try
-                {
-                    byte[] buffer = new byte[port.ReadBufferSize];
-                    Action Read = async delegate
-                    {
-                        while (port.IsOpen || !readingTaskCancellationTokenSource.IsCancellationRequested)
-                        {
-                            int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
-                            byte[] data = new byte[dataLength];
-                            Array.Copy(buffer, data, dataLength);
-                            if (dataLength != 1)
-                            {
-                                Console.WriteLine("WARNING: serial port read data size is " + dataLength + ", data skipped. " + GetID());
-                            }
-                            else
-                            {
-                                OnDataReceived(data);
-                            }
-                        }
-                    };
-                    readingTask = Task.Factory.StartNew(Read, readingTaskCancellationTokenSource.Token);
-                }
-                catch (Exception e)
-                {
-                    e.Source = "PortMediator.SerialPort.StartReading() of " + GetID() + " -> " + e.Source;
-                    success = false;
-                    throw e;
-                }
-                return success;
-            });
+                readingTask = Task.Factory.StartNew(Read, 
+                    readingTaskCancellationTokenSource.Token,
+                    TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            }
+            catch (AggregateException e)
+            {
+                e.Source = "PortMediator.SerialPort.StartReading() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
             
-            return startReadingTask;
+        }
+
+        private async void Read()
+        {
+            if (!port.IsOpen)
+            {
+                Exception e = new Exception("Port closed");
+                e.Source = "Read()";
+                throw e;
+            }
+            byte[] buffer = new byte[port.ReadBufferSize];
+            while (port.IsOpen || !readingTaskCancellationTokenSource.IsCancellationRequested)
+            {
+                int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
+                byte[] data = new byte[dataLength];
+                Array.Copy(buffer, data, dataLength);
+                if (dataLength != 1)
+                {
+                    Console.WriteLine("WARNING: serial port read data size is " + dataLength + ", data skipped. " + GetID());
+                }
+                else
+                {
+                    OnDataReceived(data);
+                }
+            }
         }
 
         public override void StopReading(Client client)
@@ -132,100 +128,87 @@ namespace PortMediator
             return "SerialPort " + port.PortName;
         }
 
-        public override Task<bool> WaitForConnectionRequest()
+        public override void StartWaitingForConnectionRequest()
         {
-            Task<bool> WaitForConnectionRequestTask = Task<bool>.Factory.StartNew(delegate
+            if (!port.IsOpen)
             {
-                bool success = true;
-                try
-                {
-                    byte[] buffer = new byte[port.ReadBufferSize];
-                    byte[] data = new byte[connectionRequestMessageLength];
-                    int bytesRead = 0;
-                    Action MonitorPort = async delegate
-                    {
-                        while (port.IsOpen || !waitForConnectionRequestTaskCancellationTokenSource.IsCancellationRequested)
-                        {
-                            int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
-                            if(dataLength <= connectionRequestMessageLength - bytesRead)
-                            {
-                                Array.Copy(buffer, 0, data, bytesRead, dataLength);
-                                bytesRead += dataLength;
-                            }
-                            else
-                            {
-                                Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
-                                bytesRead = connectionRequestMessageLength;
-                            }
-                            if(bytesRead == connectionRequestMessageLength)
-                            {
-                                ConnectionRequested(data);
-                                break;
-                            }
-                        }
-                    };
-                    readingTask = Task.Factory.StartNew(MonitorPort, waitForConnectionRequestTaskCancellationTokenSource.Token);
-                }
-                catch (Exception e)
-                {
-                    e.Source = "PortMediator.SerialPort.WaitForConnectionRequest() of " + GetID() + " -> " + e.Source;
-                    success = false;
-                    throw e;
-                }
-                return success;
-            });
+                Exception e =  new Exception("Port closed");
+                e.Source = "StartWaitingForConnectionRequest()";
+                throw e;
+            }
+            try
+            {
+                readingTask = Task.Factory.StartNew(MonitorPort, 
+                    waitForConnectionRequestTaskCancellationTokenSource.Token, 
+                    TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            }
+            catch (AggregateException e)
+            {
+                e.Source = "PortMediator.SerialPort.WaitForConnectionRequest() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
+        }
 
-            return WaitForConnectionRequestTask;
+        private async void MonitorPort()
+        {
+            byte[] buffer = new byte[port.ReadBufferSize];
+            byte[] data = new byte[connectionRequestMessageLength];
+            int bytesRead = 0;
+
+            while (port.IsOpen || !waitForConnectionRequestTaskCancellationTokenSource.IsCancellationRequested)
+            {
+                int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
+                if (dataLength <= connectionRequestMessageLength - bytesRead)
+                {
+                    Array.Copy(buffer, 0, data, bytesRead, dataLength);
+                    bytesRead += dataLength;
+                }
+                else
+                {
+                    Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
+                    bytesRead = connectionRequestMessageLength;
+                }
+                if (bytesRead == connectionRequestMessageLength)
+                {
+                    ConnectionRequested(this, data);
+                    break;
+                }
+            }
         }
     }
 
     class SerialPeripheral : Peripheral
     {
         
-        private Dictionary<string, SerialPort> defaultPorts = new Dictionary<string, SerialPort>
+        public SerialPeripheral()
         {
-            ["COM8"] = new SerialPort("COM8"),
-            ["COM13"] = new SerialPort("COM13")
-        };
+            ports.Add(new SerialPort("COM8"));
+            ports.Add(new SerialPort("COM13"));
+        }
 
-        public override Task<bool> StartPeripheral()
+        public override void Start()
         {
-            isRunning = true;
-            Task<bool> StartPeripheralTask = Task<bool>.Factory.StartNew(delegate
+            foreach (SerialPort port in ports)
             {
-                bool success = true;
-                foreach (SerialPort port in defaultPorts.Values)
+                try
                 {
-                    try
-                    {
-                        port.Open(this);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine("Could not start port " + e.Source + ": " + e.Message);
-                        success = false;
-                    }
+                    port.Open(this);
                 }
-                return success;
-            });
-
-            return StartPeripheralTask;
-        }
-
-        public override Task<bool> StopPeripheral()
-        {
-            isRunning = false;
-            return Task.FromResult(true);
-        }
-
-        public override void ClosePeripheral()
-        {
-            foreach(SerialPort port in defaultPorts.Values)
-            {
-                port.OnClose("Peripheral closed");
-                port.Close();
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error occured in SerialPeripheral.Start(), could not open port");
+                    Console.WriteLine("\tError source: " + e.Source);
+                    Console.WriteLine("\tError message: " + e.Message);
+                }
             }
         }
+
+
+
+        //public override void Close()
+        //{
+
+        //}
 
     }
 }

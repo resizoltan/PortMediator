@@ -29,9 +29,9 @@ namespace PortMediator
             return "BLE GATT Characteristic with UUID " + characteristic.Uuid.ToString();
         }
 
-        public async override Task<bool> Open(Peripheral serialPeripheral)
+        public async override void Open(Peripheral serialPeripheral)
         {
-            bool success = false;
+            hostingPeripheral = serialPeripheral;
             if (device != null && 
                 device.ConnectionStatus == BluetoothConnectionStatus.Connected && 
                 characteristic != null)
@@ -40,7 +40,7 @@ namespace PortMediator
                     GattClientCharacteristicConfigurationDescriptorValue.Notify);
                 if(status == GattCommunicationStatus.Success)
                 {
-                    success = await WaitForConnectionRequest();
+                    StartWaitingForConnectionRequest();
                 }
                 else
                 {
@@ -49,7 +49,6 @@ namespace PortMediator
                     throw e;
                 }
             }
-            return success;
         }
 
         public override void Close()
@@ -57,10 +56,9 @@ namespace PortMediator
             device.Dispose(); //what happens if there are other references to this device in other BLEPorts?
         }
 
-        public override Task<bool> WaitForConnectionRequest()
+        public override void StartWaitingForConnectionRequest()
         {
             characteristic.ValueChanged += WaitingForConnectionCallback;
-            return Task.FromResult(true);
         }
 
         private void WaitingForConnectionCallback(GattCharacteristic gattCharacteristic, GattValueChangedEventArgs eventArgs)
@@ -83,7 +81,7 @@ namespace PortMediator
             OnDataReceived(data);
         }
 
-        public override Task<bool> StartReading()
+        public override void StartReading()
         {
             try
             {
@@ -94,7 +92,6 @@ namespace PortMediator
                 e.Source = "BLEPort.StartReading() of " + GetID() + " -> " + e.Source;
                 throw e;
             }
-            return Task.FromResult(true);
         }
 
         public override void StopReading(Client client)
@@ -110,40 +107,36 @@ namespace PortMediator
             }
         }
 
-        public override void SendData(byte[] data)
+        public override Task SendData(byte[] data)
         {
             try
             {
                 DataWriter dataWriter = new DataWriter();
-                Action sendNextSlice = null; //action for the slice by slice transfer of data to the bluetooth module
                 int bytesSent = 0;
                 int maxSliceSize = 20; //empirically determined maximum (index out of array bonds exception in gattCharacteristic_.WriteValueAsync(...) for higher values)
-                sendNextSlice = async delegate
+                Task sendTask = Task.Factory.StartNew(async delegate
                 {
-                    int sliceSize = ((data.Length - bytesSent) > maxSliceSize) ?    //if   more bytes remain than the maximum ble msg size
+                    while(bytesSent < data.Length)
+                    {
+                        int sliceSize = ((data.Length - bytesSent) > maxSliceSize) ?//if   more bytes remain than the maximum ble msg size
                                     maxSliceSize :                                  //     send maximum msg size amount of bytes
                                     (data.Length - bytesSent);                      //else send remaining bytes
-                    byte[] slice = new byte[sliceSize];
-                    System.Buffer.BlockCopy(data, bytesSent, slice, 0, sliceSize);  //copy the respective bytes from data to a new array called slice
-                    dataWriter.WriteBytes(slice);
-                    await characteristic.WriteValueAsync(dataWriter.DetachBuffer()); //send data slice to the bluetooth module
-                    bytesSent += sliceSize;
-                    if (bytesSent < data.Length)
-                    {
-                        sendNextSlice(); //repeat process until whole data is transmitted
+                        byte[] slice = new byte[sliceSize];
+                        System.Buffer.BlockCopy(data, bytesSent, slice, 0, sliceSize);  //copy the respective bytes from data to a new array called slice
+                        dataWriter.WriteBytes(slice);
+                        await characteristic.WriteValueAsync(dataWriter.DetachBuffer()); //send data slice to the bluetooth module
+                        bytesSent += sliceSize;
                     }
-                };
-                sendNextSlice(); //transmit first slice
+                });
+                return sendTask;
             }
             catch(Exception e)
             {
                 e.Source = "BLEPort.SendData() of " + GetID() + " -> " + e.Source;
                 throw e;
             }
-           
         }
-
-
+    
     }
 
 
@@ -180,7 +173,9 @@ namespace PortMediator
 
                 GattCharacteristic characteristic = GetCharacteristicData(service, wantedCharacteristicUuidString);
 
+                BLEPort blePort = new BLEPort(device, characteristic);
 
+                ports.Add(blePort);
             }
             catch(Exception e)
             {
@@ -252,19 +247,20 @@ namespace PortMediator
             return characteristic;
         }
 
-        public override Task<bool> StartPeripheral()
+        public override void Start()
         {
-            throw new NotImplementedException();
+            watcher.Start();
         }
 
-        public override Task<bool> StopPeripheral()
+        public override void Stop()
         {
-            throw new NotImplementedException();
+            base.Stop();
+            watcher.Stop();
         }
 
-        public override void ClosePeripheral()
-        {
-            throw new NotImplementedException();
-        }
+        //public override void Close()
+        //{
+        //    throw new NotImplementedException();
+        //}
     }
 }

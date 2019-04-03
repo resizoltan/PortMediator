@@ -17,17 +17,16 @@ namespace PortMediator
         protected CancellationTokenSource readingTaskCancellationTokenSource = new CancellationTokenSource();
         protected CancellationTokenSource waitForConnectionRequestTaskCancellationTokenSource = new CancellationTokenSource();
 
-        public abstract Task<bool> Open(Peripheral serialPeripheral);
+        public abstract void Open(Peripheral serialPeripheral);
         public abstract void Close();
-        public abstract Task<bool> StartReading();
-        public abstract Task<bool> WaitForConnectionRequest();
+        public abstract void StartReading();
+        public abstract void StartWaitingForConnectionRequest();
         public abstract void StopReading(Client client);
         public abstract string GetID();
 
-        public abstract void SendData(byte[] data);
+        public abstract Task SendData(byte[] data);
 
         public event EventHandler<BytesReceivedEventArgs> DataReceived;
-        public event EventHandler<CloseEventArgs> Closes;
 
         public void OnDataReceived(byte[] data)
         {
@@ -41,16 +40,16 @@ namespace PortMediator
         }
 
 
-        public void OnClose(string reason)
-        {
-            EventHandler<CloseEventArgs> handler = Closes;
-            if (handler != null)
-            {
-                CloseEventArgs args = new CloseEventArgs();
-                args.reason = reason;
-                handler(this, args);
-            }
-        }
+        //public void OnClose(string reason)
+        //{
+        //    EventHandler<CloseEventArgs> handler = Closes;
+        //    if (handler != null)
+        //    {
+        //        CloseEventArgs args = new CloseEventArgs();
+        //        args.reason = reason;
+        //        handler(this, args);
+        //    }
+        //}
 
         public class CloseEventArgs : EventArgs
         {
@@ -73,35 +72,28 @@ namespace PortMediator
                     Console.WriteLine("Error occured in Port.ConnectionRequested()");
                     Console.WriteLine("Error source:  " + e.Source);
                     Console.WriteLine("Error message: " + e.Message);
-                    onPort.WaitForConnectionRequest();
+                    onPort.StartWaitingForConnectionRequest();
                 }
             }
-            onPort.WaitForConnectionRequest();
+            onPort.StartWaitingForConnectionRequest();
         }
-
-
-
-
-
-        //public class SendFailedException : Exception
-        //{
-        //    public SendFailedException(Exception couse) : base("Could not send data on " + couse.Source + ": " + couse.Message)
-        //    {
-
-        //    }
-        //}
     }
 
     public abstract class Peripheral
     {
         
-        protected bool isRunning;
         public string id { get; }
+        protected List<Port> ports = new List<Port>();
 
-
-        public abstract Task<bool> StartPeripheral();
-        public abstract Task<bool> StopPeripheral();
-        public abstract void ClosePeripheral();        
+        public abstract void Start();
+        public virtual void Stop()
+        {
+            foreach (Port port in ports)
+            {
+                port.Close();
+            }
+        }
+        //public abstract void Close();        
 
         public event EventHandler<NewClientEventArgs> NewClientReceived;
         public void OnNewClient(Client client)

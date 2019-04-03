@@ -65,9 +65,7 @@ namespace PortMediator
                         Console.WriteLine("Zero bytes read");
 
                     }
-
                 }
-
             });
             
         }

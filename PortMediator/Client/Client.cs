@@ -27,7 +27,7 @@ namespace PortMediator
             [TYPE.MATLAB] = "matlab",
             [TYPE.CONSOLE] = "console"
         };
-        static readonly byte closeSignal = 0xfc;
+        static readonly byte[] closeSignal = { 0xfc };
 
         protected Port port;
         public TYPE type { get; }
@@ -42,7 +42,6 @@ namespace PortMediator
             this.name = name;
             this.port = port;
             this.port.DataReceived += ProcessReceivedData;
-            this.port.Closes += SendCloseSignal;
         }
 
         public static Client CreateNew(TYPE type, string name, Port port)
@@ -98,9 +97,10 @@ namespace PortMediator
             }
         }
 
-        public void SendCloseSignal(object sender, Port.CloseEventArgs eventArgs)
+        public async void Close()
         {
-            port.SendData(new byte[] { closeSignal });
+            await port.SendData(closeSignal);
+            port.Close();
         }
 
         public virtual void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)

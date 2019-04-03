@@ -114,9 +114,9 @@ namespace PortMediator
         static void OpenAll()
         {
             serialPeripheral.NewClientReceived += NewClientCallback;
-            serialPeripheral.StartPeripheral();
+            serialPeripheral.Start();
             BLEPeripheral.NewClientReceived += NewClientCallback;
-            BLEPeripheral.StartPeripheral();
+            BLEPeripheral.Start();
         }
 
         static void CloseAll()
@@ -125,8 +125,8 @@ namespace PortMediator
             //{
             //    client.SendCloseSignal();
             //}
-            serialPeripheral.ClosePeripheral();
-            BLEPeripheral.ClosePeripheral();
+            serialPeripheral.Close();
+            BLEPeripheral.Close();
         }
 
         static void NewClientCallback(object sender, NewClientEventArgs eventArgs)
