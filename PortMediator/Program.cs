@@ -129,13 +129,12 @@ namespace PortMediator
             BLEPeripheral.Close();
         }
 
-        static void NewClientCallback(object sender, NewClientEventArgs eventArgs)
+        static void NewClientHandler(Client client)
         {
-            Client newClient = eventArgs.client;
-            AddClient(newClient);
-            newClient.StartReading();
+            AddClient(client);
+            client.StartReading();
 
-            Console.WriteLine("New Client: " + newClient.name);
+            Console.WriteLine("New Client: " + client.name);
         }
 
         static void AddClient(Client newClient)

@@ -11,13 +11,17 @@ namespace PortMediator
     {
         protected const int connectionRequestMessageLength = 3;
 
-        protected Peripheral hostingPeripheral = null;
+        protected Action<Client> NewClientHandler = null;
 
         protected Task readingTask = null;
-        protected CancellationTokenSource readingTaskCancellationTokenSource = new CancellationTokenSource();
-        protected CancellationTokenSource waitForConnectionRequestTaskCancellationTokenSource = new CancellationTokenSource();
+        protected CancellationTokenSource readingTaskCTS = new CancellationTokenSource();
+        protected CancellationTokenSource waitForConnectionRequestTaskCTS = new CancellationTokenSource();
 
-        public abstract void Open(Peripheral serialPeripheral);
+        public Port(Action<Client> NewClientHandler)
+        {
+            this.NewClientHandler = NewClientHandler;
+        }
+        public abstract void Open();
         public abstract void Close();
         public abstract void StartReading();
         public abstract void StartWaitingForConnectionRequest();
@@ -65,7 +69,7 @@ namespace PortMediator
                     Client.TYPE type = Client.Identify((byte)(data[0] - Encoding.ASCII.GetBytes("0")[0]));
                     string name = Client.typenames[type] + "_" + Encoding.ASCII.GetString(data, 1, 2);
                     Client newClient = Client.CreateNew(type, name, this);
-                    hostingPeripheral.OnNewClient(newClient);
+                    NewClientHandler(newClient);
                 }
                 catch(Exception e)
                 {
@@ -84,6 +88,12 @@ namespace PortMediator
         
         public string id { get; }
         protected List<Port> ports = new List<Port>();
+        protected Action<Client> NewClientHandler = null;
+
+        public Peripheral(Action<Client> NewClientHandler)
+        {
+            this.NewClientHandler = NewClientHandler;
+        }
 
         public abstract void Start();
         public virtual void Stop()
@@ -95,17 +105,17 @@ namespace PortMediator
         }
         //public abstract void Close();        
 
-        public event EventHandler<NewClientEventArgs> NewClientReceived;
-        public void OnNewClient(Client client)
-        {
-            EventHandler<NewClientEventArgs> handler = NewClientReceived;
-            if (handler != null)
-            {
-                NewClientEventArgs args = new NewClientEventArgs();
-                args.client = client;
-                handler(this, args);
-            }
-        }
+        //public event EventHandler<NewClientEventArgs> NewClientReceived;
+        //public void OnNewClient(Client client)
+        //{
+        //    EventHandler<NewClientEventArgs> handler = NewClientReceived;
+        //    if (handler != null)
+        //    {
+        //        NewClientEventArgs args = new NewClientEventArgs();
+        //        args.client = client;
+        //        handler(this, args);
+        //    }
+        //}
     }
 
     public class NewClientEventArgs : EventArgs

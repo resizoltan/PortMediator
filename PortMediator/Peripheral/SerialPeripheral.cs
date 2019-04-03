@@ -12,7 +12,7 @@ namespace PortMediator
     {
         System.IO.Ports.SerialPort port;
        
-        public SerialPort(string portName)
+        public SerialPort(string portName, Action<Client> NewClientHandler) : base(NewClientHandler)
         {
             port = new System.IO.Ports.SerialPort(portName);
             port.BaudRate = 115200;
@@ -36,10 +36,8 @@ namespace PortMediator
             }
         }
 
-        public override void Open(Peripheral serialPeripheral)
+        public override void Open()
         {
-            hostingPeripheral = serialPeripheral;
-
             try
             {
                 port.Open();
@@ -76,7 +74,7 @@ namespace PortMediator
             try
             {
                 readingTask = Task.Factory.StartNew(Read, 
-                    readingTaskCancellationTokenSource.Token,
+                    readingTaskCTS.Token,
                     TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
             catch (AggregateException e)
@@ -96,7 +94,7 @@ namespace PortMediator
                 throw e;
             }
             byte[] buffer = new byte[port.ReadBufferSize];
-            while (port.IsOpen || !readingTaskCancellationTokenSource.IsCancellationRequested)
+            while (port.IsOpen || !readingTaskCTS.IsCancellationRequested)
             {
                 int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
                 byte[] data = new byte[dataLength];
@@ -119,7 +117,7 @@ namespace PortMediator
                 (readingTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
                 (readingTask.Status == TaskStatus.WaitingToRun))
             {
-                readingTaskCancellationTokenSource.Cancel();
+                readingTaskCTS.Cancel();
             }
         }
 
@@ -139,7 +137,7 @@ namespace PortMediator
             try
             {
                 readingTask = Task.Factory.StartNew(MonitorPort, 
-                    waitForConnectionRequestTaskCancellationTokenSource.Token, 
+                    waitForConnectionRequestTaskCTS.Token, 
                     TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
             catch (AggregateException e)
@@ -155,7 +153,7 @@ namespace PortMediator
             byte[] data = new byte[connectionRequestMessageLength];
             int bytesRead = 0;
 
-            while (port.IsOpen || !waitForConnectionRequestTaskCancellationTokenSource.IsCancellationRequested)
+            while (port.IsOpen || !waitForConnectionRequestTaskCTS.IsCancellationRequested)
             {
                 int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
                 if (dataLength <= connectionRequestMessageLength - bytesRead)
@@ -180,10 +178,10 @@ namespace PortMediator
     class SerialPeripheral : Peripheral
     {
         
-        public SerialPeripheral()
+        public SerialPeripheral(Action<Client> NewClientHandler) :base(NewClientHandler)
         {
-            ports.Add(new SerialPort("COM8"));
-            ports.Add(new SerialPort("COM13"));
+            ports.Add(new SerialPort("COM8", NewClientHandler));
+            ports.Add(new SerialPort("COM13", NewClientHandler));
         }
 
         public override void Start()
@@ -192,7 +190,7 @@ namespace PortMediator
             {
                 try
                 {
-                    port.Open(this);
+                    port.Open();
                 }
                 catch (Exception e)
                 {

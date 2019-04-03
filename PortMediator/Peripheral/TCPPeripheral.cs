@@ -13,7 +13,7 @@ namespace PortMediator
     class TCPPort : Port
     {
 
-        public TCPPort(TcpClient tcpClient)
+        public TCPPort(TcpClient tcpClient, Action<Client> NewClientHandler):base(NewClientHandler)
         {
 
         }
@@ -23,7 +23,7 @@ namespace PortMediator
             throw new NotImplementedException();
         }
 
-        public override void Open(Peripheral serialPeripheral)
+        public override void Open()
         {
             throw new NotImplementedException();
         }
@@ -62,7 +62,7 @@ namespace PortMediator
 
         CancellationTokenSource acceptTcpClientTaskCTS = new CancellationTokenSource();
 
-        public TCPPeripheral()
+        public TCPPeripheral(Action<Client> NewClientHandler):base(NewClientHandler)
         {
             try
             {
@@ -90,7 +90,7 @@ namespace PortMediator
                 while (!acceptTcpClientTaskCTS.IsCancellationRequested)
                 {
                     TcpClient tcpClient = tcpListener.AcceptTcpClient();
-                    TCPPort tcpPort = new TCPPort(tcpClient);
+                    TCPPort tcpPort = new TCPPort(tcpClient, NewClientHandler);
                     ports.Add(tcpPort);
                 }
             }, acceptTcpClientTaskCT, TaskCreationOptions.LongRunning, TaskScheduler.Default);

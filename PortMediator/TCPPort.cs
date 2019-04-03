@@ -12,7 +12,7 @@ namespace PortMediator
 {
     
 
-    class TCPPort:Client
+    class TCPPort_old:Client
     {
         private int localPort = 11000;
         TcpListener server = null;

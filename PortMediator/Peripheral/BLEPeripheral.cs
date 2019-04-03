@@ -18,7 +18,7 @@ namespace PortMediator
         GattCharacteristic characteristic = null;
         BluetoothLEDevice device = null;
 
-        public BLEPort(BluetoothLEDevice device, GattCharacteristic characteristic)
+        public BLEPort(BluetoothLEDevice device, GattCharacteristic characteristic, Action<Client> NewClientHandler) : base(NewClientHandler)
         {
             this.device = device;
             this.characteristic = characteristic;
@@ -29,9 +29,8 @@ namespace PortMediator
             return "BLE GATT Characteristic with UUID " + characteristic.Uuid.ToString();
         }
 
-        public async override void Open(Peripheral serialPeripheral)
+        public async override void Open()
         {
-            hostingPeripheral = serialPeripheral;
             if (device != null && 
                 device.ConnectionStatus == BluetoothConnectionStatus.Connected && 
                 characteristic != null)
@@ -147,7 +146,7 @@ namespace PortMediator
         string wantedServiceUuidString = "0000ffe0-0000-1000-8000-00805f9b34fb";
         string wantedCharacteristicUuidString = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
-        public BLEPeripheral()
+        public BLEPeripheral(Action<Client> NewClientHandler) : base(NewClientHandler)
         {
             watcher = new BluetoothLEAdvertisementWatcher();
 
@@ -173,7 +172,7 @@ namespace PortMediator
 
                 GattCharacteristic characteristic = GetCharacteristicData(service, wantedCharacteristicUuidString);
 
-                BLEPort blePort = new BLEPort(device, characteristic);
+                BLEPort blePort = new BLEPort(device, characteristic, NewClientHandler);
 
                 ports.Add(blePort);
             }
