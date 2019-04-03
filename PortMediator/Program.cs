@@ -12,6 +12,7 @@ namespace PortMediator
         //static Program program = new Program();
 
         static Peripheral serialPeripheral = new SerialPeripheral();
+        static Peripheral BLEPeripheral = new BLEPeripheral();
 
         static Dictionary<Client.TYPE, List<Client>> clientsByType = null;
         static List<Channel> channels = null;
@@ -19,6 +20,26 @@ namespace PortMediator
         //static Dictionary<Client, List<Client>> dataDestinations = new Dictionary<Client, List<Client>>();
         //static Dictionary<Client, Action<byte[]>> dataListeners = new Dictionary<Client, Action<byte[]>>();
         static Action<Client> dataFlowAddClient = null;
+
+        static Client[] clients
+        {
+            get
+            {
+                int clientCount = 0;
+                foreach (List<Client> clientList in clientsByType.Values)
+                {
+                    clientCount += clientList.Count;
+                }
+                Client[] clientArray = new Client[clientCount];
+                int destinationIndex = 0;
+                foreach (List<Client> clientList in clientsByType.Values)
+                {
+                    Array.Copy(clientList.ToArray(), 0, clientArray, destinationIndex, clientList.Count);
+                    destinationIndex += clientList.Count;
+                }
+                return clientArray;
+            }
+        }
 
         static void Main(string[] args)
         {
@@ -76,16 +97,36 @@ namespace PortMediator
         {
             Console.WriteLine("PortMediator v2");
             Console.WriteLine("Opening peripherals...");
-            serialPeripheral.NewClientReceived += NewClientCallback;
-            serialPeripheral.StartPeripheral();
-            
+            OpenAll();
+
             string input;
             do
             {
                 input = Console.ReadLine();
             } while (input != "exit");
 
+
+            CloseAll();
+
+
+        }
+
+        static void OpenAll()
+        {
+            serialPeripheral.NewClientReceived += NewClientCallback;
+            serialPeripheral.StartPeripheral();
+            BLEPeripheral.NewClientReceived += NewClientCallback;
+            BLEPeripheral.StartPeripheral();
+        }
+
+        static void CloseAll()
+        {
+            //foreach(Client client in clients)
+            //{
+            //    client.SendCloseSignal();
+            //}
             serialPeripheral.ClosePeripheral();
+            BLEPeripheral.ClosePeripheral();
         }
 
         static void NewClientCallback(object sender, NewClientEventArgs eventArgs)
