@@ -140,24 +140,24 @@ namespace PortMediator
                 try
                 {
                     byte[] buffer = new byte[port.ReadBufferSize];
-                    byte[] data = new byte[3];
+                    byte[] data = new byte[connectionRequestMessageLength];
                     int bytesRead = 0;
                     Action MonitorPort = async delegate
                     {
                         while (port.IsOpen || !waitForConnectionRequestTaskCancellationTokenSource.IsCancellationRequested)
                         {
-                            int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 3);
-                            if(dataLength <= 3 - bytesRead)
+                            int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
+                            if(dataLength <= connectionRequestMessageLength - bytesRead)
                             {
                                 Array.Copy(buffer, 0, data, bytesRead, dataLength);
                                 bytesRead += dataLength;
                             }
                             else
                             {
-                                Array.Copy(buffer, 0, data, bytesRead, 3 - bytesRead);
-                                bytesRead = 3;
+                                Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
+                                bytesRead = connectionRequestMessageLength;
                             }
-                            if(bytesRead == 3)
+                            if(bytesRead == connectionRequestMessageLength)
                             {
                                 ConnectionRequested(data);
                                 break;

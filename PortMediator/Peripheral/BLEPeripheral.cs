@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using System.Threading;
+using Windows.Storage.Streams;
 
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
@@ -58,7 +59,29 @@ namespace PortMediator
 
         public override Task<bool> WaitForConnectionRequest()
         {
-            throw new NotImplementedException();
+            characteristic.ValueChanged += WaitingForConnectionCallback;
+            return Task.FromResult(true);
+        }
+
+        private void WaitingForConnectionCallback(GattCharacteristic gattCharacteristic, GattValueChangedEventArgs eventArgs)
+        {
+            DataReader dataReader = DataReader.FromBuffer(eventArgs.CharacteristicValue);
+            byte[] data = new byte[dataReader.UnconsumedBufferLength];
+            dataReader.ReadBytes(data);
+            if(data.Length == connectionRequestMessageLength)
+            {
+                ConnectionRequested(data);
+                characteristic.ValueChanged -= WaitingForConnectionCallback;
+                characteristic.ValueChanged += BLEDataReceived;
+            }
+        }
+
+        private void BLEDataReceived(GattCharacteristic gattCharacteristic, GattValueChangedEventArgs eventArgs)
+        {
+            DataReader dataReader = DataReader.FromBuffer(eventArgs.CharacteristicValue);
+            byte[] data = new byte[dataReader.UnconsumedBufferLength];
+            dataReader.ReadBytes(data);
+            OnDataReceived(data);
         }
 
         public override Task<bool> StartReading()

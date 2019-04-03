@@ -9,6 +9,8 @@ namespace PortMediator
 {
     public abstract class Port
     {
+        protected const int connectionRequestMessageLength = 3;
+
         protected Peripheral hostingPeripheral = null;
 
         protected Task readingTask = null;
