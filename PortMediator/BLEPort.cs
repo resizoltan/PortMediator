@@ -15,15 +15,6 @@ namespace PortMediator
 {
     class BLEPort_old : Client
     {
-        BluetoothLEAdvertisementWatcher bleWatcher_ = null;
-
-        BluetoothLEDevice bleDevice_ = null;
-        GattDeviceService gattService_ = null;
-        GattCharacteristic gattCharacteristic_ = null;
-
-        string bleDeviceLocalName_ = "JDY-10-V2.4";
-        string gattServiceUuidString_ = "0000ffe0-0000-1000-8000-00805f9b34fb";
-        string gattCharacteristicUuidString_ = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
         DataWriter dataWriter_ = new DataWriter();
         DataReader dataReader_ = null;

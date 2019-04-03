@@ -15,16 +15,40 @@ namespace PortMediator
     class BLEPort : Port
     {
         GattCharacteristic characteristic = null;
-        T
+        BluetoothLEDevice device = null;
+
+        public BLEPort(BluetoothLEDevice device, GattCharacteristic characteristic)
+        {
+            this.device = device;
+            this.characteristic = characteristic;
+        }
 
         public override string GetID()
         {
-            throw new NotImplementedException();
+            return "BLE GATT Characteristic with UUID " + characteristic.Uuid.ToString();
         }
 
-        public override Task<bool> Open(Peripheral serialPeripheral)
+        public async override Task<bool> Open(Peripheral serialPeripheral)
         {
-            throw new NotImplementedException();
+            bool success = false;
+            if (device != null && 
+                device.ConnectionStatus == BluetoothConnectionStatus.Connected && 
+                characteristic != null)
+            {
+                GattCommunicationStatus status = await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                    GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                if(status == GattCommunicationStatus.Success)
+                {
+                    success = await WaitForConnectionRequest();
+                }
+                else
+                {
+                    Exception e = new Exception("Subscribing to bluetooth GATT characteristic notifications failed, characteristic unreachable");
+                    e.Source = "BLEPort.Open() of " + GetID();
+                    throw e;
+                }
+            }
+            return success;
         }
 
         public override void Close()
