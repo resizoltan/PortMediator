@@ -117,7 +117,7 @@ namespace PortMediator
         {
             serialPeripheral.Start();
             blePeripheral.Start();
-            //tcpPeripheral.Start();
+            tcpPeripheral.Start();
         }
 
         static void CloseAll()
@@ -130,7 +130,7 @@ namespace PortMediator
                 }
                 serialPeripheral.Stop();
                 blePeripheral.Stop();
-               // tcpPeripheral.Stop();
+                tcpPeripheral.Stop();
             }
             catch(Exception e)
             {

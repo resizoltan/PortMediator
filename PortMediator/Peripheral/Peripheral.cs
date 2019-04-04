@@ -92,6 +92,7 @@ namespace PortMediator
         public string id { get; }
         protected List<Port> ports = new List<Port>();
         protected Action<Client> NewClientHandler = null;
+        protected Task listeningForConnectionRequestsTask = null;
 
         public Peripheral(Action<Client> NewClientHandler)
         {
