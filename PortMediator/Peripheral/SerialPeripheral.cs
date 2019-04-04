@@ -44,9 +44,14 @@ namespace PortMediator
                 StartWaitingForConnectionRequest();
 
             }
-            catch (Exception e)
+            catch (AggregateException e)
             {
                 e.Source = "PortMediator.SerialPort.Open() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(GetID() + e.Message);
                 throw e;
             }
         }
@@ -61,9 +66,14 @@ namespace PortMediator
                 });
                 return writeTask;
             }
-            catch (Exception e)
+            catch (AggregateException e)
             {
                 e.Source = "PortMediator.SerialPort.SendData() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(GetID() + e.Message);
                 throw e;
             }
         }
@@ -87,7 +97,12 @@ namespace PortMediator
                 e.Source = "PortMediator.SerialPort.StartReading() of " + GetID() + " -> " + e.Source;
                 throw e;
             }
-            
+            catch (Exception e)
+            {
+                Console.WriteLine(GetID() + e.Message);
+                throw e;
+            }
+
         }
 
         private async void Read()
@@ -105,6 +120,12 @@ namespace PortMediator
                 catch (AggregateException e)
                 {
                     Console.WriteLine(GetID() + e.Message);
+                    throw e;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(GetID() + e.Message);
+                    throw e;
                 }
 
             }
@@ -136,13 +157,18 @@ namespace PortMediator
             }
             try
             {
-                readingTask = Task.Factory.StartNew(MonitorPort, 
-                    waitForConnectionRequestTaskCTS.Token, 
+                readingTask = Task.Factory.StartNew(MonitorPort,
+                    waitForConnectionRequestTaskCTS.Token,
                     TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
             catch (AggregateException e)
             {
                 e.Source = "WaitForConnectionRequest() -> " + e.Source;
+                throw e;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(GetID() + e.Message);
                 throw e;
             }
         }
@@ -184,6 +210,12 @@ namespace PortMediator
                 catch(AggregateException e)
                 {
                     Console.WriteLine(GetID() + e.Message);
+                    throw e;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(GetID() + e.Message);
+                    throw e;
                 }
 
             }
@@ -215,10 +247,19 @@ namespace PortMediator
                     Console.WriteLine("\tError source: " + e.Source);
                     Console.WriteLine("\tError message: " + e.Message);
                 }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error occured in SerialPeripheral.Start(), could not open port");
+                    Console.WriteLine("\tError source: " + e.Source);
+                    Console.WriteLine("\tError message: " + e.Message);
+                }
             }
         }
 
-
+        public override void Stop()
+        {
+            base.Stop();
+        }
 
         //public override void Close()
         //{

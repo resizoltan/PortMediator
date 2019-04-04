@@ -140,6 +140,12 @@ namespace PortMediator
                 Console.WriteLine("\tError source:  " + e.Source);
                 Console.WriteLine("\tError message: " + e.Message);
             }
+            catch(Exception e)
+            {
+                Console.WriteLine("Error occured in CloseAll()");
+                Console.WriteLine("\tError source:  " + e.Source);
+                Console.WriteLine("\tError message: " + e.Message);
+            }
 
         }
 

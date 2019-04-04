@@ -257,7 +257,7 @@ namespace PortMediator
                     }
                 }, acceptTcpClientTaskCT, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
-            catch(AggregateException e)
+            catch(Exception e)
             {
                 Console.WriteLine("Error occured in TCPPeripheral.Start() of " + localEndPoint.ToString());
                 Console.WriteLine("\tError source: " + e.Source);
