@@ -26,6 +26,7 @@ namespace PortMediator
             }
         }
 
+        //if received byte by byte, sending order might be messed up
         public override void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
         {
             packetInReceiving = Communication.Packet.CreateNewFromRaw(eventArgs.data, false);

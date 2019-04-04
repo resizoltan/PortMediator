@@ -79,7 +79,10 @@ namespace PortMediator
                     onPort.StartWaitingForConnectionRequest();
                 }
             }
-            onPort.StartWaitingForConnectionRequest();
+            else
+            {
+                onPort.StartWaitingForConnectionRequest();
+            }
         }
     }
 
