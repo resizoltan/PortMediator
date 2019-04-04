@@ -70,7 +70,12 @@ namespace PortMediator
 
         public override void StartReading()
         {
-
+            if (!port.IsOpen)
+            {
+                Exception e = new Exception("Port closed");
+                e.Source = "StartReading()";
+                throw e;
+            }
             try
             {
                 readingTask = Task.Factory.StartNew(Read, 
@@ -87,26 +92,13 @@ namespace PortMediator
 
         private async void Read()
         {
-            if (!port.IsOpen)
-            {
-                Exception e = new Exception("Port closed");
-                e.Source = "Read()";
-                throw e;
-            }
             byte[] buffer = new byte[port.ReadBufferSize];
-            while (port.IsOpen || !readingTaskCTS.IsCancellationRequested)
+            while (port.IsOpen && !readingTaskCTS.IsCancellationRequested)
             {
                 int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
                 byte[] data = new byte[dataLength];
                 Array.Copy(buffer, data, dataLength);
-                if (dataLength != 1)
-                {
-                    Console.WriteLine("WARNING: serial port read data size is " + dataLength + ", data skipped. " + GetID());
-                }
-                else
-                {
-                    OnDataReceived(data);
-                }
+                OnDataReceived(data);
             }
         }
 
@@ -155,13 +147,13 @@ namespace PortMediator
 
             while (bytesRead != connectionRequestMessageLength)
             {
-                if (!port.IsOpen || !waitForConnectionRequestTaskCTS.IsCancellationRequested)
+                if (!port.IsOpen)
                 {
                     Exception e = new Exception("Port closed");
                     e.Source = "MonitorPort()";
                     throw e;
                 }
-                if (!waitForConnectionRequestTaskCTS.IsCancellationRequested)
+                if (waitForConnectionRequestTaskCTS.IsCancellationRequested)
                 {
                     Exception e = new Exception("Waiting for connection request canceled");
                     e.Source = "MonitorPort()";

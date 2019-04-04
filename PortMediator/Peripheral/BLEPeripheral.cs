@@ -259,6 +259,7 @@ namespace PortMediator
             watcher.Stop();
         }
 
+
         //public override void Close()
         //{
         //    throw new NotImplementedException();

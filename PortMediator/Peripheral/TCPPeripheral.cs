@@ -25,22 +25,67 @@ namespace PortMediator
 
         public override string GetID()
         {
-            throw new NotImplementedException();
+            return "TCP remote endpoint " + tcpClient.Client.RemoteEndPoint.ToString();
         }
 
         public override void Open()
         {
-            throw new NotImplementedException();
+            try
+            {
+                StartWaitingForConnectionRequest();
+            }
+            catch(Exception e)
+            {
+                e.Source = "PortMediator.TCPPort.Open() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
         }
 
         public override void Close()
         {
-            throw new NotImplementedException();
+            tcpClient.Client.Shutdown(SocketShutdown.Both);
+            tcpClient.Client.Close();
         }
 
         public override void StartReading()
         {
-            throw new NotImplementedException();
+            if (!tcpClient.Connected)
+            {
+                Exception e = new Exception("TcpClient not connected");
+                e.Source = "StartReading()";
+                throw e;
+            }
+            try
+            {
+                readingTask = Task.Factory.StartNew(Read,
+                    waitForConnectionRequestTaskCTS.Token,
+                    TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            }
+            catch (AggregateException e)
+            {
+                e.Source = "WaitForConnectionRequest() -> " + e.Source;
+                throw e;
+            }
+        }
+
+        public void Read()
+        {
+            byte[] buffer = new byte[tcpClient.ReceiveBufferSize];
+            while (tcpClient.Connected && waitForConnectionRequestTaskCTS.IsCancellationRequested)
+            {
+                NetworkStream inputStream = tcpClient.GetStream();
+                int dataLength = inputStream.Read(buffer, 0, 1);
+                if (dataLength == 0)
+                {
+                    Close();
+                    Exception e = new Exception("TcpCLient not connected");
+                    e.Source = "Read()";
+                    throw e;
+                }
+                byte[] data = new byte[dataLength];
+                Array.Copy(buffer, data, dataLength);
+                OnDataReceived(data);
+            }
         }
 
         public override void StartWaitingForConnectionRequest()
@@ -109,12 +154,27 @@ namespace PortMediator
 
         public override Task SendData(byte[] data)
         {
-            throw new NotImplementedException();
+            Task sendTask = Task.Run(delegate
+            {
+                if (tcpClient.Connected)
+                {
+                    NetworkStream outputStream = tcpClient.GetStream();
+                    outputStream.Write(data, 0, data.Length);
+                    outputStream.Flush();
+                }
+            });
+            return sendTask;
         }
 
         public override void StopReading(Client client)
         {
-            throw new NotImplementedException();
+            if ((readingTask.Status == TaskStatus.Running) ||
+                (readingTask.Status == TaskStatus.WaitingForActivation) ||
+                (readingTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
+                (readingTask.Status == TaskStatus.WaitingToRun))
+            {
+                readingTaskCTS.Cancel();
+            }
         }
     }
 
@@ -163,7 +223,8 @@ namespace PortMediator
 
         public override void Stop()
         {
-            throw new NotImplementedException();
+            base.Stop();
+            tcpListener.Stop();
         }
 
         //public override void Close()
