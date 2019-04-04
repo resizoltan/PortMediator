@@ -106,10 +106,11 @@ namespace PortMediator
                 port.Close();
                 await port.WaitForAllOperationsToComplete();
             }
-            catch(AggregateException e)
+            catch (AggregateException e)
             {
                 throw e.InnerException;
             }
+            catch (NullReferenceException) { }
 
         }
 

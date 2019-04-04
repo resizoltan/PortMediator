@@ -90,7 +90,9 @@ namespace PortMediator
                 [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MATLAB },
                 [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.CONSOLE },
                 [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.MATLAB },
-                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.CONSOLE }
+                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.CONSOLE },
+                [Client.TYPE.MOUSE] = new List<Client.TYPE> { Client.TYPE.CONSOLE },
+                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MOUSE },
             };
         }
       
@@ -136,10 +138,14 @@ namespace PortMediator
             catch(AggregateException e)
             {
                 Console.WriteLine("Error occured in CloseAll()");
-                Console.WriteLine("\tError source:  " + e.Source);
-                Console.WriteLine("\tError message: " + e.Message);
+                foreach (Exception innerException in e.InnerExceptions)
+                {
+                    Console.WriteLine("\tError source: " + innerException.Source);
+                    Console.WriteLine("\tError message: " + innerException.Message);
+                    Console.WriteLine("\tError stack trace: " + innerException.StackTrace);
+                }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine("Error occured in CloseAll()");
                 Console.WriteLine("\tError source:  " + e.Source);

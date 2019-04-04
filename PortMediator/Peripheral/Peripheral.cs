@@ -122,7 +122,7 @@ namespace PortMediator
         public string id { get; }
         protected List<Port> ports = new List<Port>();
         protected Action<Client> NewClientHandler = null;
-        protected Task listendForPortConnectionsTask = null;
+        protected Task listenForPortConnectionsTask = null;
 
         public Peripheral(Action<Client> NewClientHandler)
         {
@@ -139,15 +139,9 @@ namespace PortMediator
                 {
                     port.WaitForAllOperationsToComplete().Wait();
                 }
-                catch(AggregateException e)
+                catch (NullReferenceException e)
                 {
-                    Console.WriteLine("Error occured in Peripheral.Stop()");
-                    foreach(Exception innerException in e.InnerExceptions)
-                    {
-                        Console.WriteLine("\tError source: " + innerException.Source);
-                        Console.WriteLine("\tError message: " + innerException.Message);
-                        Console.WriteLine("\tError stack strace: " + innerException.StackTrace);
-                    }
+
                 }
             }
         }
