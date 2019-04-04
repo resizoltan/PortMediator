@@ -175,6 +175,8 @@ namespace PortMediator
                 BLEPort blePort = new BLEPort(device, characteristic, NewClientHandler);
 
                 ports.Add(blePort);
+
+                blePort.Open();
             }
             catch(Exception e)
             {

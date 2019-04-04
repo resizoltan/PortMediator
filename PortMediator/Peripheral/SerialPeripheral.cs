@@ -131,7 +131,7 @@ namespace PortMediator
             if (!port.IsOpen)
             {
                 Exception e =  new Exception("Port closed");
-                e.Source = "StartWaitingForConnectionRequest()";
+                e.Source = "StartWaitingForConnectionRequest()" ;
                 throw e;
             }
             try
@@ -142,7 +142,7 @@ namespace PortMediator
             }
             catch (AggregateException e)
             {
-                e.Source = "PortMediator.SerialPort.WaitForConnectionRequest() of " + GetID() + " -> " + e.Source;
+                e.Source = "WaitForConnectionRequest() -> " + e.Source;
                 throw e;
             }
         }
@@ -153,8 +153,21 @@ namespace PortMediator
             byte[] data = new byte[connectionRequestMessageLength];
             int bytesRead = 0;
 
-            while (port.IsOpen || !waitForConnectionRequestTaskCTS.IsCancellationRequested)
+            while (bytesRead != connectionRequestMessageLength)
             {
+                if (!port.IsOpen || !waitForConnectionRequestTaskCTS.IsCancellationRequested)
+                {
+                    Exception e = new Exception("Port closed");
+                    e.Source = "MonitorPort()";
+                    throw e;
+                }
+                if (!waitForConnectionRequestTaskCTS.IsCancellationRequested)
+                {
+                    Exception e = new Exception("Waiting for connection request canceled");
+                    e.Source = "MonitorPort()";
+                    throw e;
+                }
+                
                 int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
                 if (dataLength <= connectionRequestMessageLength - bytesRead)
                 {
@@ -166,12 +179,9 @@ namespace PortMediator
                     Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
                     bytesRead = connectionRequestMessageLength;
                 }
-                if (bytesRead == connectionRequestMessageLength)
-                {
-                    ConnectionRequested(this, data);
-                    break;
-                }
             }
+            ConnectionRequested(this, data);
+
         }
     }
 

@@ -12,10 +12,15 @@ namespace PortMediator
 {
     class TCPPort : Port
     {
+        private TcpClient tcpClient = null;
+        const int bufferSize = 1024;
 
         public TCPPort(TcpClient tcpClient, Action<Client> NewClientHandler):base(NewClientHandler)
         {
-
+            this.tcpClient = tcpClient;
+            this.tcpClient.ReceiveBufferSize = bufferSize;
+            this.tcpClient.SendBufferSize = bufferSize;
+            StartWaitingForConnectionRequest();
         }
 
         public override string GetID()
@@ -40,7 +45,66 @@ namespace PortMediator
 
         public override void StartWaitingForConnectionRequest()
         {
-            throw new NotImplementedException();
+            if (!tcpClient.Connected)
+            {
+                Exception e = new Exception("TcpClient not connected");
+                e.Source = "StartWaitingForConnectionRequest()";
+                throw e;
+            }
+            try
+            {
+                readingTask = Task.Factory.StartNew(MonitorPort,
+                    waitForConnectionRequestTaskCTS.Token,
+                    TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            }
+            catch(AggregateException e)
+            {
+                e.Source = "WaitForConnectionRequest() -> " + e.Source;
+                throw e;
+            }
+        }
+
+        private void MonitorPort()
+        {
+            byte[] buffer = new byte[connectionRequestMessageLength];
+            byte[] data = new byte[connectionRequestMessageLength];
+            int bytesRead = 0;
+            while (bytesRead != connectionRequestMessageLength)
+            {
+                if (!tcpClient.Connected)
+                {
+                    Exception e = new Exception("TcpClient not connected");
+                    e.Source = "MonitorPort()";
+                    throw e;
+                }
+                if (!waitForConnectionRequestTaskCTS.IsCancellationRequested)
+                {
+                    Exception e = new Exception("Waiting for connection request canceled");
+                    e.Source = "MonitorPort()";
+                    throw e;
+                }
+
+                NetworkStream inputStream = tcpClient.GetStream();
+                int dataLength = inputStream.Read(buffer, 0, connectionRequestMessageLength);
+                if (dataLength == 0)
+                {
+                    Close();
+                    Exception e = new Exception("No connection request received");
+                    e.Source = "MonitorPort()";
+                    throw e;
+                }
+                else if(dataLength <= connectionRequestMessageLength - bytesRead)
+                {
+                    Array.Copy(buffer, 0, data, bytesRead, dataLength);
+                    bytesRead += dataLength;
+                }
+                else
+                {
+                    Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
+                    bytesRead = connectionRequestMessageLength;
+                }
+            }
+            ConnectionRequested(this, data);
         }
 
         public override Task SendData(byte[] data)
@@ -92,6 +156,7 @@ namespace PortMediator
                     TcpClient tcpClient = tcpListener.AcceptTcpClient();
                     TCPPort tcpPort = new TCPPort(tcpClient, NewClientHandler);
                     ports.Add(tcpPort);
+                    tcpPort.Open();
                 }
             }, acceptTcpClientTaskCT, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
