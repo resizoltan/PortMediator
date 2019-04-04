@@ -29,7 +29,7 @@ namespace PortMediator
                     port.Close();
                 }
             }
-            catch (Exception e)
+            catch (AggregateException e)
             {
                 e.Source = "PortMediator.SerialPort.Close() of " + GetID() + " -> " + e.Source;
                 throw e;
@@ -95,10 +95,18 @@ namespace PortMediator
             byte[] buffer = new byte[port.ReadBufferSize];
             while (port.IsOpen && !readingTaskCTS.IsCancellationRequested)
             {
-                int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
-                byte[] data = new byte[dataLength];
-                Array.Copy(buffer, data, dataLength);
-                OnDataReceived(data);
+                try
+                {
+                    int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
+                    byte[] data = new byte[dataLength];
+                    Array.Copy(buffer, data, dataLength);
+                    OnDataReceived(data);
+                }
+                catch (AggregateException e)
+                {
+                    Console.WriteLine(GetID() + e.Message);
+                }
+
             }
         }
 
@@ -159,18 +167,25 @@ namespace PortMediator
                     e.Source = "MonitorPort()";
                     throw e;
                 }
-                
-                int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
-                if (dataLength <= connectionRequestMessageLength - bytesRead)
+                try
                 {
-                    Array.Copy(buffer, 0, data, bytesRead, dataLength);
-                    bytesRead += dataLength;
+                    int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
+                    if (dataLength <= connectionRequestMessageLength - bytesRead)
+                    {
+                        Array.Copy(buffer, 0, data, bytesRead, dataLength);
+                        bytesRead += dataLength;
+                    }
+                    else
+                    {
+                        Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
+                        bytesRead = connectionRequestMessageLength;
+                    }
                 }
-                else
+                catch(AggregateException e)
                 {
-                    Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
-                    bytesRead = connectionRequestMessageLength;
+                    Console.WriteLine(GetID() + e.Message);
                 }
+
             }
             ConnectionRequested(this, data);
 
@@ -194,7 +209,7 @@ namespace PortMediator
                 {
                     port.Open();
                 }
-                catch (Exception e)
+                catch (AggregateException e)
                 {
                     Console.WriteLine("Error occured in SerialPeripheral.Start(), could not open port");
                     Console.WriteLine("\tError source: " + e.Source);

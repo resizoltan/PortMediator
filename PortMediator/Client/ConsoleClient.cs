@@ -19,7 +19,7 @@ namespace PortMediator
             {
                 port.SendData(packet.rawData);
             }
-            catch (Exception e)
+            catch (AggregateException e)
             {
                 e.Source = "Client.SendData() of client " + name + " -> " + e.Source;
                 throw e;
@@ -35,4 +35,29 @@ namespace PortMediator
         }
 
     }
+
+    //class LimitedConcurrencyTaskScheduler : TaskScheduler
+    //{
+    //    [ThreadStatic]
+    //    private static bool _currentThreadIsProcessingItems;
+
+    //    private readonly LinkedList<Task> _tasks = new LinkedList<Task>();
+
+    //    private readonly int _maxDegreeOfParallelism = 1;
+
+    //    protected override IEnumerable<Task> GetScheduledTasks()
+    //    {
+    //        throw new NotImplementedException();
+    //    }
+
+    //    protected override void QueueTask(Task task)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
+
+    //    protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
+    //}
 }

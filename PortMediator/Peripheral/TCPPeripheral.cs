@@ -246,11 +246,14 @@ namespace PortMediator
                 {
                     while (!acceptTcpClientTaskCTS.IsCancellationRequested)
                     {
+
                         TcpClient tcpClient = tcpListener.AcceptTcpClient();
                         TCPPort tcpPort = new TCPPort(tcpClient, NewClientHandler);
                         tcpPort.closed += PortClosed;
                         ports.Add(tcpPort);
                         tcpPort.Open();
+
+                       
                     }
                 }, acceptTcpClientTaskCT, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
@@ -273,8 +276,8 @@ namespace PortMediator
         public async override void Stop()
         {
             //base.Stop();
-            acceptTcpClientTaskCTS.Cancel();
-            await listeningForConnectionRequestsTask;
+            //acceptTcpClientTaskCTS.Cancel();
+            //await listeningForConnectionRequestsTask;
             tcpListener.Stop();
         }
 

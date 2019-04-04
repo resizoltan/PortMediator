@@ -109,6 +109,7 @@ namespace PortMediator
 
 
             CloseAll();
+            Console.Read();
 
 
         }
@@ -131,8 +132,9 @@ namespace PortMediator
                 serialPeripheral.Stop();
                 blePeripheral.Stop();
                 tcpPeripheral.Stop();
+                //int dummy = 0;
             }
-            catch(Exception e)
+            catch(AggregateException e)
             {
                 Console.WriteLine("Error occured in CloseAll()");
                 Console.WriteLine("\tError source:  " + e.Source);

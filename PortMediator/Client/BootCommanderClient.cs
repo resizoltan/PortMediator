@@ -19,7 +19,7 @@ namespace PortMediator
             {
                 port.SendData(packet.xcpBootCommander);
             }
-            catch (Exception e)
+            catch (AggregateException e)
             {
                 e.Source = "MatlabClient.SendData() of client " + name + " -> " + e.Source;
                 throw e;

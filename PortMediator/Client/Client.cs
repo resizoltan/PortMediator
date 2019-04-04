@@ -90,7 +90,7 @@ namespace PortMediator
             {
                 port.SendData(packet.rawData);
             }
-            catch(Exception e)
+            catch(AggregateException e)
             {
                 e.Source = "Client.SendData() of client " + name + " -> " + e.Source;
                 throw e;
