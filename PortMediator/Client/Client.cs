@@ -92,15 +92,25 @@ namespace PortMediator
             }
             catch(AggregateException e)
             {
-                e.Source = "Client.SendData() of client " + name + " -> " + e.Source;
-                throw e;
+                e.InnerException.Source = "Client.SendData() of client " + name + " -> " + e.Source;
+                throw e.InnerException;
             }
         }
 
         public async void Close()
         {
-            await port.SendData(closeSignal);
-            port.Close();
+            try
+            {
+                port.SendData(closeSignal);
+                await port.SendTask;
+                port.Close();
+                await port.WaitForAllOperationsToComplete();
+            }
+            catch(AggregateException e)
+            {
+                throw e.InnerException;
+            }
+
         }
 
         public virtual void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)

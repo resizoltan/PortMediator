@@ -114,7 +114,7 @@ namespace PortMediator
             }
         }
 
-        public override Task SendData(byte[] data)
+        public override void SendData(byte[] data)
         {
             try
             {
@@ -135,7 +135,6 @@ namespace PortMediator
                         bytesSent += sliceSize;
                     }
                 });
-                return sendTask;
             }
             catch(Exception e)
             {

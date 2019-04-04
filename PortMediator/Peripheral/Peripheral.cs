@@ -13,8 +13,39 @@ namespace PortMediator
 
         protected Action<Client> NewClientHandler = null;
 
-        protected Task readingTask = null;
-        protected CancellationTokenSource readingTaskCTS = new CancellationTokenSource();
+        protected Task readTask = null;
+        protected Task sendTask = null;
+        protected Task waitForClientConnectionTask = null;
+
+        public Task ReadTask {
+            get { return readTask; }
+        }
+        public Task SendTask {
+            get { return sendTask; }
+        } 
+        public Task WaitForConnectionRequestTask {
+            get { return waitForClientConnectionTask; }
+        }
+
+        public async Task WaitForAllOperationsToComplete()
+        {
+            try
+            {
+                await ReadTask;
+                await SendTask;
+                await WaitForConnectionRequestTask;
+            }
+            catch (NullReferenceException) { }
+
+        }
+
+        //protected bool readTaskCancelRequested = false;
+        //protected bool sendTaskCancelRequested = false;
+        //protected bool 
+        //protected void CancelReadTask()
+
+        protected CancellationTokenSource readTaskCTS = new CancellationTokenSource();
+        protected CancellationTokenSource sendTaskCTS = new CancellationTokenSource();
         protected CancellationTokenSource waitForConnectionRequestTaskCTS = new CancellationTokenSource();
 
         public Port(Action<Client> NewClientHandler)
@@ -28,7 +59,7 @@ namespace PortMediator
         public abstract void StopReading(Client client);
         public abstract string GetID();
 
-        public abstract Task SendData(byte[] data);
+        public abstract void SendData(byte[] data);
 
         public event EventHandler<BytesReceivedEventArgs> DataReceived;
 
@@ -43,7 +74,6 @@ namespace PortMediator
             }
         }
 
-
         //public void OnClose(string reason)
         //{
         //    EventHandler<CloseEventArgs> handler = Closes;
@@ -55,10 +85,10 @@ namespace PortMediator
         //    }
         //}
 
-        public class CloseEventArgs : EventArgs
-        {
-            public string reason { get; set; } = "unknown";
-        }
+        //public class CloseEventArgs : EventArgs
+        //{
+        //    public string reason { get; set; } = "unknown";
+        //}
 
         public void ConnectionRequested(Port onPort, byte[] data)
         {
@@ -92,7 +122,7 @@ namespace PortMediator
         public string id { get; }
         protected List<Port> ports = new List<Port>();
         protected Action<Client> NewClientHandler = null;
-        protected Task listeningForConnectionRequestsTask = null;
+        protected Task listendForPortConnectionsTask = null;
 
         public Peripheral(Action<Client> NewClientHandler)
         {
@@ -105,6 +135,20 @@ namespace PortMediator
             foreach (Port port in ports)
             {
                 port.Close();
+                try
+                {
+                    port.WaitForAllOperationsToComplete().Wait();
+                }
+                catch(AggregateException e)
+                {
+                    Console.WriteLine("Error occured in Peripheral.Stop()");
+                    foreach(Exception innerException in e.InnerExceptions)
+                    {
+                        Console.WriteLine("\tError source: " + innerException.Source);
+                        Console.WriteLine("\tError message: " + innerException.Message);
+                        Console.WriteLine("\tError stack strace: " + innerException.StackTrace);
+                    }
+                }
             }
         }
         //public abstract void Close();        

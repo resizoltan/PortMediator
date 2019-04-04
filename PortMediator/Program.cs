@@ -132,7 +132,6 @@ namespace PortMediator
                 serialPeripheral.Stop();
                 blePeripheral.Stop();
                 tcpPeripheral.Stop();
-                //int dummy = 0;
             }
             catch(AggregateException e)
             {

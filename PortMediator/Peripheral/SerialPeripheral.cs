@@ -22,17 +22,9 @@ namespace PortMediator
 
         public override void Close()
         {
-            try
+            if (port.IsOpen)
             {
-                if (port.IsOpen)
-                {
-                    port.Close();
-                }
-            }
-            catch (AggregateException e)
-            {
-                e.Source = "PortMediator.SerialPort.Close() of " + GetID() + " -> " + e.Source;
-                throw e;
+                port.Close();
             }
         }
 
@@ -42,38 +34,24 @@ namespace PortMediator
             {
                 port.Open();
                 StartWaitingForConnectionRequest();
-
             }
-            catch (AggregateException e)
+            catch (Exception e)
             {
                 e.Source = "PortMediator.SerialPort.Open() of " + GetID() + " -> " + e.Source;
                 throw e;
             }
-            catch (Exception e)
-            {
-                Console.WriteLine(GetID() + e.Message);
-                throw e;
-            }
+
         }
 
-        public override Task SendData(byte[] data)
+        public override void SendData(byte[] data)
         {
             try
             {
-                Task writeTask = Task.Factory.StartNew(delegate
-                {
-                    port.Write(data, 0, data.Length);
-                });
-                return writeTask;
-            }
-            catch (AggregateException e)
-            {
-                e.Source = "PortMediator.SerialPort.SendData() of " + GetID() + " -> " + e.Source;
-                throw e;
+                sendTask = port.BaseStream.WriteAsync(data, 0, data.Length);
             }
             catch (Exception e)
             {
-                Console.WriteLine(GetID() + e.Message);
+                e.Source = "PortMediator.SerialPort.SendData() of " + GetID() + " -> " + e.Source;
                 throw e;
             }
         }
@@ -86,29 +64,16 @@ namespace PortMediator
                 e.Source = "StartReading()";
                 throw e;
             }
-            try
-            {
-                readingTask = Task.Factory.StartNew(Read, 
-                    readingTaskCTS.Token,
-                    TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            }
-            catch (AggregateException e)
-            {
-                e.Source = "PortMediator.SerialPort.StartReading() of " + GetID() + " -> " + e.Source;
-                throw e;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(GetID() + e.Message);
-                throw e;
-            }
+
+            waitForClientConnectionTask = Read();
+
 
         }
 
-        private async void Read()
+        private async Task Read()
         {
             byte[] buffer = new byte[port.ReadBufferSize];
-            while (port.IsOpen && !readingTaskCTS.IsCancellationRequested)
+            while (port.IsOpen && !readTaskCTS.IsCancellationRequested)
             {
                 try
                 {
@@ -117,28 +82,22 @@ namespace PortMediator
                     Array.Copy(buffer, data, dataLength);
                     OnDataReceived(data);
                 }
-                catch (AggregateException e)
-                {
-                    Console.WriteLine(GetID() + e.Message);
-                    throw e;
-                }
                 catch (Exception e)
                 {
-                    Console.WriteLine(GetID() + e.Message);
+                    e.Source = "PortMediator.SerialPort.Read() of " + GetID() + " -> " + e.Source;
                     throw e;
                 }
-
             }
         }
 
         public override void StopReading(Client client)
         {
-            if( (readingTask.Status == TaskStatus.Running) ||
-                (readingTask.Status == TaskStatus.WaitingForActivation) || 
-                (readingTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
-                (readingTask.Status == TaskStatus.WaitingToRun))
+            if( (WaitForConnectionRequestTask.Status == TaskStatus.Running) ||
+                (WaitForConnectionRequestTask.Status == TaskStatus.WaitingForActivation) || 
+                (WaitForConnectionRequestTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
+                (WaitForConnectionRequestTask.Status == TaskStatus.WaitingToRun))
             {
-                readingTaskCTS.Cancel();
+                readTaskCTS.Cancel();
             }
         }
 
@@ -155,46 +114,23 @@ namespace PortMediator
                 e.Source = "StartWaitingForConnectionRequest()" ;
                 throw e;
             }
-            try
-            {
-                readingTask = Task.Factory.StartNew(MonitorPort,
-                    waitForConnectionRequestTaskCTS.Token,
-                    TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            }
-            catch (AggregateException e)
-            {
-                e.Source = "WaitForConnectionRequest() -> " + e.Source;
-                throw e;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(GetID() + e.Message);
-                throw e;
-            }
+
+            waitForClientConnectionTask = MonitorPort();
+
         }
 
-        private async void MonitorPort()
+        private async Task MonitorPort()
         {
             byte[] buffer = new byte[port.ReadBufferSize];
             byte[] data = new byte[connectionRequestMessageLength];
             int bytesRead = 0;
 
-            while (bytesRead != connectionRequestMessageLength)
+            while (bytesRead != connectionRequestMessageLength && 
+                port.IsOpen && 
+                !waitForConnectionRequestTaskCTS.IsCancellationRequested)
             {
-                if (!port.IsOpen)
-                {
-                    Exception e = new Exception("Port closed");
-                    e.Source = "MonitorPort()";
-                    throw e;
-                }
-                if (waitForConnectionRequestTaskCTS.IsCancellationRequested)
-                {
-                    Exception e = new Exception("Waiting for connection request canceled");
-                    e.Source = "MonitorPort()";
-                    throw e;
-                }
-                try
-                {
+                //try
+                //{
                     int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
                     if (dataLength <= connectionRequestMessageLength - bytesRead)
                     {
@@ -206,21 +142,19 @@ namespace PortMediator
                         Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
                         bytesRead = connectionRequestMessageLength;
                     }
-                }
-                catch(AggregateException e)
-                {
-                    Console.WriteLine(GetID() + e.Message);
-                    throw e;
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(GetID() + e.Message);
-                    throw e;
-                }
-
+                //}
+                //catch(AggregateException e)
+                //{
+                //    e.InnerException.Source = "Port.MonitorPort() of " + GetID() + " -> " + e.Source;
+                //    throw e.InnerException;
+                //}
+                
             }
-            ConnectionRequested(this, data);
 
+            if(bytesRead == connectionRequestMessageLength)
+            {
+                ConnectionRequested(this, data);
+            }
         }
     }
 
@@ -240,12 +174,6 @@ namespace PortMediator
                 try
                 {
                     port.Open();
-                }
-                catch (AggregateException e)
-                {
-                    Console.WriteLine("Error occured in SerialPeripheral.Start(), could not open port");
-                    Console.WriteLine("\tError source: " + e.Source);
-                    Console.WriteLine("\tError message: " + e.Message);
                 }
                 catch (Exception e)
                 {

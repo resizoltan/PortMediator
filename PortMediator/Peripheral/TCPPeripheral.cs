@@ -76,7 +76,7 @@ namespace PortMediator
             }
             try
             {
-                readingTask = Task.Factory.StartNew(Read,
+                waitForClientConnectionTask = Task.Factory.StartNew(Read,
                     waitForConnectionRequestTaskCTS.Token,
                     TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
@@ -122,7 +122,7 @@ namespace PortMediator
             }
             try
             {
-                readingTask = Task.Factory.StartNew(MonitorPort,
+                waitForClientConnectionTask = Task.Factory.StartNew(MonitorPort,
                     waitForConnectionRequestTaskCTS.Token,
                     TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
@@ -181,7 +181,7 @@ namespace PortMediator
             ConnectionRequested(this, data);
         }
 
-        public override Task SendData(byte[] data)
+        public override void SendData(byte[] data)
         {
             Task sendTask = Task.Run(delegate
             {
@@ -192,17 +192,16 @@ namespace PortMediator
                     outputStream.Flush();
                 }
             });
-            return sendTask;
         }
 
         public override void StopReading(Client client)
         {
-            if ((readingTask.Status == TaskStatus.Running) ||
-                (readingTask.Status == TaskStatus.WaitingForActivation) ||
-                (readingTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
-                (readingTask.Status == TaskStatus.WaitingToRun))
+            if ((WaitForConnectionRequestTask.Status == TaskStatus.Running) ||
+                (WaitForConnectionRequestTask.Status == TaskStatus.WaitingForActivation) ||
+                (WaitForConnectionRequestTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
+                (WaitForConnectionRequestTask.Status == TaskStatus.WaitingToRun))
             {
-                readingTaskCTS.Cancel();
+                readTaskCTS.Cancel();
             }
         }
     }
@@ -242,7 +241,7 @@ namespace PortMediator
             {
                 tcpListener.Start();
                 CancellationToken acceptTcpClientTaskCT = acceptTcpClientTaskCTS.Token;
-                listeningForConnectionRequestsTask = Task.Factory.StartNew(delegate
+                listendForPortConnectionsTask = Task.Factory.StartNew(delegate
                 {
                     while (!acceptTcpClientTaskCTS.IsCancellationRequested)
                     {
