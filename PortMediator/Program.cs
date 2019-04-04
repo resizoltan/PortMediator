@@ -12,7 +12,9 @@ namespace PortMediator
         //static Program program = new Program();
 
         static Peripheral serialPeripheral = new SerialPeripheral(NewClientHandler);
-        static Peripheral BLEPeripheral = new BLEPeripheral(NewClientHandler);
+        static Peripheral blePeripheral = new BLEPeripheral(NewClientHandler);
+        static Peripheral tcpPeripheral = new TCPPeripheral(NewClientHandler);
+
 
         static Dictionary<Client.TYPE, List<Client>> clientsByType = null;
         static List<Channel> channels = null;
@@ -114,17 +116,29 @@ namespace PortMediator
         static void OpenAll()
         {
             serialPeripheral.Start();
-            BLEPeripheral.Start();
+            blePeripheral.Start();
+            //tcpPeripheral.Start();
         }
 
         static void CloseAll()
         {
-            //foreach(Client client in clients)
-            //{
-            //    client.SendCloseSignal();
-            //}
-            serialPeripheral.Stop();
-            BLEPeripheral.Stop();
+            try
+            {
+                foreach (Client client in clients)
+                {
+                    client.Close();
+                }
+                serialPeripheral.Stop();
+                blePeripheral.Stop();
+               // tcpPeripheral.Stop();
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Error occured in CloseAll()");
+                Console.WriteLine("\tError source:  " + e.Source);
+                Console.WriteLine("\tError message: " + e.Message);
+            }
+
         }
 
         static void NewClientHandler(Client client)

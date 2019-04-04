@@ -43,8 +43,16 @@ namespace PortMediator
 
         public override void Close()
         {
-            tcpClient.Client.Shutdown(SocketShutdown.Both);
-            tcpClient.Client.Close();
+            try
+            {
+                tcpClient.Client.Shutdown(SocketShutdown.Both);
+                tcpClient.Client.Close();
+            }
+            catch(Exception e)
+            {
+                e.Source = "TCPPeripheral.Close() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
         }
 
         public override void StartReading()
@@ -180,26 +188,28 @@ namespace PortMediator
 
     class TCPPeripheral : Peripheral
     {
-        const int localPortNumber = 11000;
+        readonly int localPortNumber = 11000;
+        readonly byte[] wantedLocalIPAdressBytes = { 192, 168, 137, 1 };
+        readonly IPAddress wantedLocalIPAddress = new IPAddress(new byte[]{ 192, 168, 137, 1 });
         IPEndPoint localEndPoint = null;
         TcpListener tcpListener = null;
-
         CancellationTokenSource acceptTcpClientTaskCTS = new CancellationTokenSource();
 
         public TCPPeripheral(Action<Client> NewClientHandler):base(NewClientHandler)
         {
             try
             {
-                IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
-                IPAddress localIPAddress = ipHostInfo.AddressList.Single(
-                    ipAddress => ipAddress.AddressFamily == AddressFamily.InterNetwork);
-                localEndPoint = new IPEndPoint(localIPAddress, localPortNumber);
+                //IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
+                //IPAddress foundLocalIPAddress = ipHostInfo.AddressList.Single(
+                //    ipAddress => ipAddress.Address == wantedLocalIPAdressBytes);
+                
+                localEndPoint = new IPEndPoint(wantedLocalIPAddress, localPortNumber);
 
                 tcpListener = new TcpListener(localEndPoint);
             }
             catch(Exception e)
             {
-                Console.WriteLine("Error occured in TCPPeripheral() of " + localEndPoint.ToString());
+                Console.WriteLine("Error occured in TCPPeripheral()");
                 Console.WriteLine("\tError source: " + e.Source);
                 Console.WriteLine("\tError message: " + e.Message);
             }
@@ -207,18 +217,28 @@ namespace PortMediator
 
         public override void Start()
         {
-            tcpListener.Start();
-            CancellationToken acceptTcpClientTaskCT = acceptTcpClientTaskCTS.Token;
-            Task.Factory.StartNew(delegate
+            try
             {
-                while (!acceptTcpClientTaskCTS.IsCancellationRequested)
+                tcpListener.Start();
+                CancellationToken acceptTcpClientTaskCT = acceptTcpClientTaskCTS.Token;
+                Task.Factory.StartNew(delegate
                 {
-                    TcpClient tcpClient = tcpListener.AcceptTcpClient();
-                    TCPPort tcpPort = new TCPPort(tcpClient, NewClientHandler);
-                    ports.Add(tcpPort);
-                    tcpPort.Open();
-                }
-            }, acceptTcpClientTaskCT, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+                    while (!acceptTcpClientTaskCTS.IsCancellationRequested)
+                    {
+                        TcpClient tcpClient = tcpListener.AcceptTcpClient();
+                        TCPPort tcpPort = new TCPPort(tcpClient, NewClientHandler);
+                        ports.Add(tcpPort);
+                        tcpPort.Open();
+                    }
+                }, acceptTcpClientTaskCT, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Error occured in TCPPeripheral.Start() of " + localEndPoint.ToString());
+                Console.WriteLine("\tError source: " + e.Source);
+                Console.WriteLine("\tError message: " + e.Message);
+            }
+            
         }
 
         public override void Stop()

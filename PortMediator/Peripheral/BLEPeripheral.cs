@@ -52,7 +52,15 @@ namespace PortMediator
 
         public override void Close()
         {
-            device.Dispose(); //what happens if there are other references to this device in other BLEPorts?
+            try
+            {
+                device.Dispose(); //what happens if there are other references to this device in other BLEPorts?
+            }
+            catch(Exception e)
+            {
+                e.Source = "BLEPeripheral.Close() of " + GetID() + " -> " + e.Source;
+                throw e;
+            }
         }
 
         public override void StartWaitingForConnectionRequest()
@@ -255,8 +263,9 @@ namespace PortMediator
 
         public override void Stop()
         {
-            base.Stop();
             watcher.Stop();
+            base.Stop();
+            ports.Clear();
         }
 
 
