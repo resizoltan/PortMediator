@@ -79,7 +79,7 @@ namespace PortMediator
             //data = Util.ClipTrailingNullFromString(data);
             if(data.Length == connectionRequestMessageLength)
             {
-                ConnectionRequested(this, data);
+                OnConnectionRequest(this, data);
                 characteristic.ValueChanged -= WaitingForConnectionCallback;
             }
         }

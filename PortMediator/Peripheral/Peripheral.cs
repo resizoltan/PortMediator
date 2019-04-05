@@ -101,46 +101,16 @@ namespace PortMediator
 
     public abstract class Peripheral
     {
-        
-        public string id { get; }
         protected List<Port> ports = new List<Port>();
-        protected Action<Client> NewClientHandler = null;
         protected Task listenForPortConnectionsTask = null;
-
-        public Peripheral(Action<Client> NewClientHandler)
-        {
-            this.NewClientHandler = NewClientHandler;
-        }
+        protected CancellationTokenSource listenForPortConnectionsTaskCTS = new CancellationTokenSource();
 
         public abstract void Start();
-        public virtual void Stop()
-        {
-            foreach (Port port in ports)
-            {
-                port.Close();
-                try
-                {
-                    port.WaitForAllOperationsToComplete().Wait();
-                }
-                catch (NullReferenceException e)
-                {
+        public abstract void Stop();
 
-                }
-            }
-        }
-        //public abstract void Close();        
+        public abstract string ID { get; }
 
-        //public event EventHandler<NewClientEventArgs> NewClientReceived;
-        //public void OnNewClient(Client client)
-        //{
-        //    EventHandler<NewClientEventArgs> handler = NewClientReceived;
-        //    if (handler != null)
-        //    {
-        //        NewClientEventArgs args = new NewClientEventArgs();
-        //        args.client = client;
-        //        handler(this, args);
-        //    }
-        //}
+        public abstract void PortClosedEventHandler(Port sender, PortClosedEventArgs eventArgs);
     }
 
     public class ConnectionRequestEventArgs : EventArgs

@@ -143,7 +143,7 @@ namespace PortMediator
                     bytesRead = connectionRequestMessageLength;
                 }
             }
-            ConnectionRequested(this, data);
+            OnConnectionRequest(this, data);
         }
 
         public override void SendData(byte[] data)
