@@ -164,38 +164,38 @@ namespace PortMediator
     class SerialPeripheral : Peripheral
     {
         
-        public SerialPeripheral(Action<Client> NewClientHandler) :base(NewClientHandler)
+        public SerialPeripheral()
         {
-            ports.Add(new SerialPort("COM8", NewClientHandler));
-            ports.Add(new SerialPort("COM13", NewClientHandler));
+            ports.Add(new SerialPort("COM8"));
+            ports.Add(new SerialPort("COM13"));
+            foreach(Port port in ports)
+            {
+                port.PortClosed += PortClosedEventHandler;
+            }
+        }
+
+        public override string ID {
+            get
+            {
+                return "SerialPeripheral";
+            }
         }
 
         public override void Start()
         {
             foreach (SerialPort port in ports)
             {
-                try
-                {
-                    port.Open();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error occured in SerialPeripheral.Start(), could not open port");
-                    Console.WriteLine("\tError source: " + e.Source);
-                    Console.WriteLine("\tError message: " + e.Message);
-                }
+                port.Open();
             }
         }
 
         public override void Stop()
         {
-            base.Stop();
+            foreach (SerialPort port in ports)
+            {
+                port.Close();
+            }
         }
-
-        //public override void Close()
-        //{
-
-        //}
 
     }
 }

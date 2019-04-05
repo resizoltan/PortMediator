@@ -110,7 +110,10 @@ namespace PortMediator
 
         public abstract string ID { get; }
 
-        public abstract void PortClosedEventHandler(Port sender, PortClosedEventArgs eventArgs);
+        protected void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs)
+        {
+            ports.Remove(sender);
+        }
     }
 
     public class ConnectionRequestEventArgs : EventArgs
