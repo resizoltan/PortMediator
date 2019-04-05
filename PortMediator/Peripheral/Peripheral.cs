@@ -105,6 +105,8 @@ namespace PortMediator
         protected Task listenForPortConnectionsTask = null;
         protected CancellationTokenSource listenForPortConnectionsTaskCTS = new CancellationTokenSource();
 
+        public EventHandler<NewPortEventArgs> NewPortOpened;
+
         public abstract void Start();
         public abstract void Stop();
 
@@ -158,6 +160,15 @@ namespace PortMediator
         public PortClosedEventArgs(string initiator)
         {
             this.initiator = initiator;
+        }
+    }
+
+    public class NewPortEventArgs : EventArgs
+    {
+        public Port port { get; set; }
+        public NewPortEventArgs(Port port)
+        {
+            this.port = port;
         }
     }
 }
