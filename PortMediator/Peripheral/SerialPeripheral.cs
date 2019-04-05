@@ -12,12 +12,18 @@ namespace PortMediator
     {
         System.IO.Ports.SerialPort port;
        
-        public SerialPort(string portName, Action<Client> NewClientHandler) : base(NewClientHandler)
+        public SerialPort(string portName)
         {
             port = new System.IO.Ports.SerialPort(portName);
             port.BaudRate = 115200;
             port.Parity = Parity.None;
             port.ReadBufferSize = 100;
+        }
+
+        public override void Open()
+        {
+            port.Open();
+            StartWaitingForConnectionRequest();
         }
 
         public override void Close()
@@ -28,20 +34,6 @@ namespace PortMediator
             }
         }
 
-        public override void Open()
-        {
-            try
-            {
-                port.Open();
-                StartWaitingForConnectionRequest();
-            }
-            catch (Exception e)
-            {
-                e.Source = "PortMediator.SerialPort.Open() of " + ID + " -> " + e.Source;
-                throw e;
-            }
-
-        }
 
         public override void SendData(byte[] data)
         {
@@ -163,16 +155,7 @@ namespace PortMediator
 
     class SerialPeripheral : Peripheral
     {
-        
-        public SerialPeripheral()
-        {
-            ports.Add(new SerialPort("COM8"));
-            ports.Add(new SerialPort("COM13"));
-            foreach(Port port in ports)
-            {
-                port.PortClosed += PortClosedEventHandler;
-            }
-        }
+        static readonly string[] defaultSerialPortNames = { "COM8", "COM13" };
 
         public override string ID {
             get
@@ -183,19 +166,24 @@ namespace PortMediator
 
         public override void Start()
         {
-            foreach (SerialPort port in ports)
+            foreach (string portName in defaultSerialPortNames)
             {
+                Port port = new SerialPort(portName);
+                //port.PortClosed += PortClosedEventHandler;
                 port.Open();
+                NewPortEventArgs eventArgs = new NewPortEventArgs(port);
+                OnNewPortOpened(eventArgs);
             }
         }
 
         public override void Stop()
         {
-            foreach (SerialPort port in ports)
-            {
-                port.Close();
-            }
+
         }
 
+        //protected override void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs)
+        //{
+            
+        //}
     }
 }

@@ -101,7 +101,7 @@ namespace PortMediator
 
     public abstract class Peripheral
     {
-        protected List<Port> ports = new List<Port>();
+        //protected List<Port> ports = new List<Port>();
         protected Task listenForPortConnectionsTask = null;
         protected CancellationTokenSource listenForPortConnectionsTaskCTS = new CancellationTokenSource();
 
@@ -112,9 +112,12 @@ namespace PortMediator
 
         public abstract string ID { get; }
 
-        protected void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs)
+       // protected abstract void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs);
+
+        protected void OnNewPortOpened(NewPortEventArgs eventArgs)
         {
-            ports.Remove(sender);
+            EventHandler<NewPortEventArgs> handler = NewPortOpened;
+            handler?.Invoke(this, eventArgs);
         }
     }
 
