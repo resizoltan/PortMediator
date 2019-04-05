@@ -165,7 +165,7 @@ namespace PortMediator
                     else
                     {
                         isEmpty = false;
-                        packetLength = (byte)(xcpBytes[0]- Encoding.ASCII.GetBytes("0")[0]);
+                        packetLength = (byte)(xcpBytes[0]);
                         int dataLength = xcpBytes.Length - 1;
                         if(dataLength > 0)
                         {

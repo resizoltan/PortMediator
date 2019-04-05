@@ -86,7 +86,7 @@ namespace PortMediator
                 NetworkStream inputStream = tcpClient.GetStream();
                 int dataLength = 0;
 
-                dataLength = await inputStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
+                dataLength = await inputStream.ReadAsync(buffer, 0, 100);
 
                 if (dataLength == 0)
                 {

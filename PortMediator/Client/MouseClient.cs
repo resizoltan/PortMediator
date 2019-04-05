@@ -17,7 +17,7 @@ namespace PortMediator
         {
             try
             {
-                port.SendData(packet.rawData);
+                port.SendData(packet.xcp);
             }
             catch (AggregateException e)
             {
@@ -31,7 +31,7 @@ namespace PortMediator
         {
             if (packetInReceiving.IsEmpty())
             {
-                packetInReceiving = Communication.Packet.CreateNewFromRaw(eventArgs.data, false);
+                packetInReceiving = Communication.Packet.CreateNewFromXCP(eventArgs.data, false);
             }
             else
             {
