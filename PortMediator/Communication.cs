@@ -122,7 +122,6 @@ namespace PortMediator
                 return packet;
             }
 
-
             public int PacketLength {
                 get
                 {

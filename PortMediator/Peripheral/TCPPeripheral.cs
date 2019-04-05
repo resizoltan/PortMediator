@@ -171,7 +171,7 @@ namespace PortMediator
         readonly int localPortNumber = 11000;
         readonly byte[] wantedLocalIPAdressBytes = { 192, 168, 137, 1 };
         readonly IPAddress wantedLocalIPAddress = new IPAddress(new byte[]{ 192, 168, 137, 1 });
-        IPEndPoint localEndPoint = null;
+        public static IPEndPoint localEndPoint = null;
         TcpListener tcpListener = null;
         CancellationTokenSource acceptTcpClientTaskCTS = new CancellationTokenSource();
 

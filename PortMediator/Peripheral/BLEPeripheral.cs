@@ -18,7 +18,7 @@ namespace PortMediator
         GattCharacteristic characteristic = null;
         BluetoothLEDevice device = null;
 
-        public BLEPort(BluetoothLEDevice device, GattCharacteristic characteristic, Action<Client> NewClientHandler) : base(NewClientHandler)
+        public BLEPort(ref BluetoothLEDevice device, GattCharacteristic characteristic, Action<Client> NewClientHandler) : base(NewClientHandler)
         {
             this.device = device;
             this.characteristic = characteristic;
@@ -73,6 +73,7 @@ namespace PortMediator
             DataReader dataReader = DataReader.FromBuffer(eventArgs.CharacteristicValue);
             byte[] data = new byte[dataReader.UnconsumedBufferLength];
             dataReader.ReadBytes(data);
+            //data = Util.ClipTrailingNullFromString(data);
             if(data.Length == connectionRequestMessageLength)
             {
                 ConnectionRequested(this, data);
@@ -171,15 +172,17 @@ namespace PortMediator
 
         private async void OnAdvertisementReceived(BluetoothLEAdvertisementWatcher watcher, BluetoothLEAdvertisementReceivedEventArgs eventArgs)
         {
+            watcher.Stop();
+            BluetoothLEDevice device = null;
             try
             {
-                BluetoothLEDevice device = await ConnectToDevice(eventArgs);
+                device = await ConnectToDevice(eventArgs);
 
                 GattDeviceService service = GetServiceData(device, wantedServiceUuidString);
 
                 GattCharacteristic characteristic = GetCharacteristicData(service, wantedCharacteristicUuidString);
 
-                BLEPort blePort = new BLEPort(device, characteristic, NewClientHandler);
+                BLEPort blePort = new BLEPort(ref device, characteristic, NewClientHandler);
 
                 ports.Add(blePort);
 
@@ -190,7 +193,12 @@ namespace PortMediator
                 Console.WriteLine("Error occured in BLEPeripheral.OnAdvertisementReceived() during connecting to device " + eventArgs.Advertisement.LocalName);
                 Console.WriteLine("\tError source: " + e.Source);
                 Console.WriteLine("\tError message: " + e.Message);
+                if(device != null)
+                {
+                    device.Dispose();
+                }
             }
+            watcher.Start();
         }
 
         private async Task<BluetoothLEDevice> ConnectToDevice(BluetoothLEAdvertisementReceivedEventArgs eventArgs)

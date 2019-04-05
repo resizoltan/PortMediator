@@ -23,6 +23,17 @@ namespace PortMediator
         //        }
         //    }
         //}
+
+        public static byte[] ClipTrailingNullFromString(byte[] stringBytes)
+        {
+            byte[] dataBytes = null;
+            if(stringBytes != null && stringBytes.Length > 0)
+            {
+                dataBytes = new byte[stringBytes.Length - 1];
+                Array.Copy(stringBytes, dataBytes, dataBytes.Length);
+            }
+            return dataBytes;
+        }
     }
 
 

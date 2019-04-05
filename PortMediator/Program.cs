@@ -60,7 +60,7 @@ namespace PortMediator
 
             channels = new List<Channel>();
 
-            dataFlowRules = DataFlowRules.CreateNew(DataFlowRules.ConsoleAndMatlab);
+            dataFlowRules = DataFlowRules.CreateNew(DataFlowRules.AllToAll);
 
         }
         static class DataFlowRules
@@ -85,14 +85,12 @@ namespace PortMediator
                 }
             }
 
-            public static Dictionary<Client.TYPE, List<Client.TYPE>> ConsoleAndMatlab = new Dictionary<Client.TYPE, List<Client.TYPE>>
+            public static Dictionary<Client.TYPE, List<Client.TYPE>> AllToAll = new Dictionary<Client.TYPE, List<Client.TYPE>>
             {
-                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MATLAB },
-                [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.CONSOLE },
-                [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.MATLAB },
-                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.CONSOLE },
-                [Client.TYPE.MOUSE] = new List<Client.TYPE> { Client.TYPE.CONSOLE },
-                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MOUSE },
+                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MATLAB, Client.TYPE.CONSOLE, Client.TYPE.MOUSE },
+                [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB },
+                [Client.TYPE.BOOTCOMMANDER] = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB },
+                [Client.TYPE.MOUSE] = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB, Client.TYPE.BOOTCOMMANDER }
             };
         }
       
@@ -102,11 +100,22 @@ namespace PortMediator
             Console.WriteLine("PortMediator v2");
             Console.WriteLine("Opening peripherals...");
             OpenAll();
-
+            //TCPTestClient tcpTestClient = new TCPTestClient();
+            //tcpTestClient.StartClient(TCPPeripheral.localEndPoint);
+            //tcpTestClient.StartReading();
             string input;
             do
             {
                 input = Console.ReadLine();
+                if(input == "restart")
+                {
+                    CloseAll();
+                    OpenAll();
+                }
+                else if(input != "exit")
+                {
+                    //tcpTestClient.SendToHost(Encoding.ASCII.GetBytes(input));
+                }
             } while (input != "exit");
 
 

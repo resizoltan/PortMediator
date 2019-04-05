@@ -96,7 +96,7 @@ namespace PortMediator
             {
                 try
                 {
-                    Client.TYPE type = Client.Identify((byte)(data[0] - Encoding.ASCII.GetBytes("0")[0]));
+                    Client.TYPE type = Client.Identify((byte)(data[0]));
                     string name = Client.typenames[type] + "_" + Encoding.ASCII.GetString(data, 1, 2);
                     Client newClient = Client.CreateNew(type, name, this);
                     NewClientHandler(newClient);

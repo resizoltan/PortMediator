@@ -55,6 +55,12 @@ namespace PortMediator
                 case TYPE.CONSOLE:
                     client = new ConsoleClient(name, port);
                     break;
+                case TYPE.MOUSE:
+                    client = new MouseClient(name, port);
+                    break;
+                case TYPE.BOOTCOMMANDER:
+                    client = new BootCommanderClient(name, port);
+                    break;
                 default:
                     client = new Client(type, name, port);
                     break;

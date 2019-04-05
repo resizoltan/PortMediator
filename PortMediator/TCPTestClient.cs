@@ -35,13 +35,13 @@ namespace PortMediator
 
         public void Read(byte[] data)
         {
-            Console.WriteLine("Client received: ");
-            //Console.WriteLine(Encoding.ASCII.GetString(data));
-            foreach (var pb in data)
+            Console.WriteLine("TCPTestClient received: ");
+            Console.WriteLine(Encoding.ASCII.GetString(data));
+            /*foreach (var pb in data)
             {
                 Console.Write(pb.ToString("X") + " ");
             }
-            Console.WriteLine("");
+            Console.WriteLine("");*/
         }
         public void StartReading()
         {
@@ -63,7 +63,7 @@ namespace PortMediator
                     else
                     {
                         Console.WriteLine("Zero bytes read");
-
+                        break;
                     }
                 }
             });
