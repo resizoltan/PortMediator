@@ -27,13 +27,15 @@ namespace PortMediator
             get { return waitForClientConnectionTask; }
         }
 
-        protected CancellationTokenSource readTaskCTS = new CancellationTokenSource();
-        protected CancellationTokenSource sendTaskCTS = new CancellationTokenSource();
-        protected CancellationTokenSource waitForConnectionRequestTaskCTS = new CancellationTokenSource();
+        //protected CancellationTokenSource readTaskCTS = new CancellationTokenSource();
+        //protected CancellationTokenSource sendTaskCTS = new CancellationTokenSource();
+        //protected CancellationTokenSource waitForConnectionRequestTaskCTS = new CancellationTokenSource();
 
         public event EventHandler<BytesReceivedEventArgs> BytesReceived;
         public event EventHandler<ClientConnectionRequestedEventArgs> ClientConnectionRequested;
         public event EventHandler<PortClosedEventArgs> PortClosed;
+        public event EventHandler<ExceptionOccuredEventArgs> ExceptionOccuredEventArgs;
+
 
         public abstract void Open();
         public abstract void Close();
@@ -66,7 +68,7 @@ namespace PortMediator
             EventHandler<PortClosedEventArgs> handler = PortClosed;
             handler?.Invoke(this, eventArgs);
         }
-        protected void OnConnectionRequest(ConnectionRequestEventArgs eventArgs)
+        protected void OnConnectionRequest(ConnectionRequestedEventArgs eventArgs)
         {
             byte[] bytes = eventArgs.bytes;
             if(bytes != null && bytes.Length == connectionRequestMessageLength)
@@ -97,6 +99,12 @@ namespace PortMediator
             EventHandler<ClientConnectionRequestedEventArgs> handler = ClientConnectionRequested;
             handler?.Invoke(this, eventArgs);
         }
+        protected void OnExceptionOccured(ExceptionOccuredEventArgs eventArgs)
+        {
+            EventHandler<ExceptionOccuredEventArgs> handler = ExceptionOccuredEventArgs;
+            handler?.Invoke(this, eventArgs);
+        }
+
     }
 
     public abstract class Peripheral
@@ -121,10 +129,10 @@ namespace PortMediator
         }
     }
 
-    public class ConnectionRequestEventArgs : EventArgs
+    public class ConnectionRequestedEventArgs : EventArgs
     {
         public byte[] bytes { get; set; }
-        public ConnectionRequestEventArgs(byte[] bytes)
+        public ConnectionRequestedEventArgs(byte[] bytes)
         {
             this.bytes = bytes;
         }
@@ -174,4 +182,53 @@ namespace PortMediator
             this.port = port;
         }
     }
+
+    public class ExceptionOccuredEventArgs
+    {
+        public Exception exception { get; set; }
+        public ExceptionOccuredEventArgs(Exception exception)
+        {
+            this.exception = exception;
+        }
+    }
+
+    public class PortException : Exception
+    {
+        public Port port { get; set; }
+        public PortException(Port port)
+        {
+            this.port = port;
+        }
+        public PortException(Port port, string source)
+        {
+            this.port = port;
+            this.Source = source;
+        }
+        public PortException(Port port, string source, string message)
+        {
+            this.port = port;
+            this.Source = source;
+        }
+        public PortException(Port port, Exception e):base(e.Message, e.InnerException)
+        {
+            this.port = port;
+            this.Source = source;
+        }
+    }
+
+    //public class AggregatePortException : AggregateException
+    //{
+    //    public Port port { get; set; }
+    //    public AggregatePortException(Port port, string source, Exception[] e):base(e)
+    //    {
+    //    }
+    //}
+
+    public class PortClosedException : PortException
+    {
+        public PortClosedException(Port port):base(port) { }
+        public PortClosedException(Port port, string source):base(port, source) { }
+    }
+
+
 }

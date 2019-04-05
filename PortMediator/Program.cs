@@ -11,7 +11,7 @@ namespace PortMediator
     {
         //static Program program = new Program();
 
-        static Peripheral serialPeripheral = new SerialPeripheral(NewClientHandler);
+        static Peripheral serialPeripheral = new SerialPeripheral();
         static Peripheral blePeripheral = new BLEPeripheral(NewClientHandler);
         static Peripheral tcpPeripheral = new TCPPeripheral(NewClientHandler);
 

@@ -41,10 +41,16 @@ namespace PortMediator
             {
                 sendTask = port.BaseStream.WriteAsync(data, 0, data.Length);
             }
-            catch (Exception e)
+            //catch (AggregateException ae)
+            //{
+            //    foreach(Exception e in ae.InnerExceptions)
+            //    {
+            //        throw e;
+            //    }
+            //}
+            catch(Exception e)
             {
-                e.Source = "PortMediator.SerialPort.SendData() of " + ID + " -> " + e.Source;
-                throw e;
+                throw new PortException(this, e);
             }
         }
 
@@ -52,34 +58,32 @@ namespace PortMediator
         {
             if (!port.IsOpen)
             {
-                Exception e = new Exception("Port closed");
-                e.Source = "StartReading()";
+                PortClosedException e = new PortClosedException(this);
                 throw e;
             }
-
             waitForClientConnectionTask = Read();
-
-
         }
 
         private async Task Read()
         {
-            byte[] buffer = new byte[port.ReadBufferSize];
-            while (port.IsOpen && !readTaskCTS.IsCancellationRequested)
+            try
             {
-                try
+                byte[] buffer = new byte[port.ReadBufferSize];
+                while (port.IsOpen)
                 {
                     int dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
                     byte[] data = new byte[dataLength];
                     Array.Copy(buffer, data, dataLength);
-                    OnDataReceived(data);
-                }
-                catch (Exception e)
-                {
-                    e.Source = "PortMediator.SerialPort.Read() of " + ID + " -> " + e.Source;
-                    throw e;
+                    BytesReceivedEventArgs eventArgs = new BytesReceivedEventArgs(data);
+                    OnDataReceived(eventArgs);
                 }
             }
+            catch (Exception e)
+            {
+                ExceptionOccuredEventArgs eventArgs = new ExceptionOccuredEventArgs(e);
+                OnExceptionOccured(eventArgs);
+            }
+           
         }
 
         public override void StopReading(Client client)
@@ -89,7 +93,7 @@ namespace PortMediator
                 (WaitForConnectionRequestTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
                 (WaitForConnectionRequestTask.Status == TaskStatus.WaitingToRun))
             {
-                readTaskCTS.Cancel();
+                Close();
             }
         }
 
@@ -105,13 +109,9 @@ namespace PortMediator
         {
             if (!port.IsOpen)
             {
-                Exception e =  new Exception("Port closed");
-                e.Source = "StartWaitingForConnectionRequest()" ;
-                throw e;
+                throw new PortClosedException(this/*, "StartWaitingForConnectionRequest()"*/);
             }
-
             waitForClientConnectionTask = MonitorPort();
-
         }
 
         private async Task MonitorPort()
@@ -120,12 +120,14 @@ namespace PortMediator
             byte[] data = new byte[connectionRequestMessageLength];
             int bytesRead = 0;
 
-            while (bytesRead != connectionRequestMessageLength && 
-                port.IsOpen && 
-                !waitForConnectionRequestTaskCTS.IsCancellationRequested)
+            while (bytesRead != connectionRequestMessageLength)
             {
-                //try
-                //{
+                try
+                {
+                    if (!port.IsOpen)
+                    {
+                        throw new PortClosedException(this);
+                    }
                     int dataLength = await port.BaseStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
                     if (dataLength <= connectionRequestMessageLength - bytesRead)
                     {
@@ -137,18 +139,28 @@ namespace PortMediator
                         Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
                         bytesRead = connectionRequestMessageLength;
                     }
-                //}
-                //catch(AggregateException e)
+                }
+                //catch(AggregateException ae)
                 //{
-                //    e.InnerException.Source = "Port.MonitorPort() of " + GetID() + " -> " + e.Source;
-                //    throw e.InnerException;
+                //    foreach(Exception e in ae.InnerExceptions)
+                //    {
+                //        throw e;
+                //    }
                 //}
-                
+                catch (Exception e)
+                {
+                    //e.Source = "MonitorPort()";
+                    ExceptionOccuredEventArgs eventArgs = new ExceptionOccuredEventArgs(e);
+                    OnExceptionOccured(eventArgs);
+                    break;
+                }
+
             }
 
             if(bytesRead == connectionRequestMessageLength)
             {
-                OnConnectionRequest(this, data);
+                ConnectionRequestedEventArgs eventArgs = new ConnectionRequestedEventArgs(data);
+                OnConnectionRequest(eventArgs);
             }
         }
     }
