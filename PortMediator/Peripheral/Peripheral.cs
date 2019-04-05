@@ -39,11 +39,6 @@ namespace PortMediator
 
         }
 
-        //protected bool readTaskCancelRequested = false;
-        //protected bool sendTaskCancelRequested = false;
-        //protected bool 
-        //protected void CancelReadTask()
-
         protected CancellationTokenSource readTaskCTS = new CancellationTokenSource();
         protected CancellationTokenSource sendTaskCTS = new CancellationTokenSource();
         protected CancellationTokenSource waitForConnectionRequestTaskCTS = new CancellationTokenSource();
@@ -57,7 +52,7 @@ namespace PortMediator
         public abstract void StartReading();
         public abstract void StartWaitingForConnectionRequest();
         public abstract void StopReading(Client client);
-        public abstract string GetID();
+        public abstract string ID { get; }
 
         public abstract void SendData(byte[] data);
 

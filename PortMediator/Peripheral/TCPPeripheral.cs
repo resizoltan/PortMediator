@@ -24,9 +24,12 @@ namespace PortMediator
             //StartWaitingForConnectionRequest();
         }
 
-        public override string GetID()
+        public override string ID
         {
-            return "TCP remote endpoint " + tcpClient.Client.RemoteEndPoint.ToString();
+            get
+            {
+                return "TCP remote endpoint " + tcpClient.Client.RemoteEndPoint.ToString();
+            }
         }
 
         public override void Open()
@@ -37,7 +40,7 @@ namespace PortMediator
             }
             catch (Exception e)
             {
-                e.Source = "PortMediator.TCPPort.Open() of " + GetID() + " -> " + e.Source;
+                e.Source = "PortMediator.TCPPort.Open() of " + ID + " -> " + e.Source;
                 throw e;
             }
         }
@@ -52,7 +55,7 @@ namespace PortMediator
             }
             catch (Exception e)
             {
-                e.Source = "TCPPeripheral.Close() of " + GetID() + " -> " + e.Source;
+                e.Source = "TCPPeripheral.Close() of " + ID + " -> " + e.Source;
                 throw e;
             }
         }
@@ -232,7 +235,7 @@ namespace PortMediator
         {
             Port port = (Port)sender;
             ports.Remove((Port)port);
-            Console.WriteLine("Port " + port.GetID() + " closed");
+            Console.WriteLine("Port " + port.ID + " closed");
         }
 
         public override void Stop()

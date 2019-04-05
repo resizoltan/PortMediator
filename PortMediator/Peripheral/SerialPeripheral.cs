@@ -84,7 +84,7 @@ namespace PortMediator
                 }
                 catch (Exception e)
                 {
-                    e.Source = "PortMediator.SerialPort.Read() of " + GetID() + " -> " + e.Source;
+                    e.Source = "PortMediator.SerialPort.Read() of " + ID + " -> " + e.Source;
                     throw e;
                 }
             }
@@ -101,9 +101,12 @@ namespace PortMediator
             }
         }
 
-        public override string GetID()
+        public override string ID
         {
-            return "SerialPort " + port.PortName;
+            get
+            {
+                return "SerialPort " + port.PortName;
+            }
         }
 
         public override void StartWaitingForConnectionRequest()

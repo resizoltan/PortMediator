@@ -24,9 +24,12 @@ namespace PortMediator
             this.characteristic = characteristic;
         }
 
-        public override string GetID()
+        public override string ID
         {
-            return "BLE GATT Characteristic with UUID " + characteristic.Uuid.ToString();
+            get
+            {
+                return "BLE GATT Characteristic with UUID " + characteristic.Uuid.ToString();
+            }
         }
 
         public async override void Open()
@@ -44,7 +47,7 @@ namespace PortMediator
                 else
                 {
                     Exception e = new Exception("Subscribing to bluetooth GATT characteristic notifications failed, characteristic unreachable");
-                    e.Source = "BLEPort.Open() of " + GetID();
+                    e.Source = "BLEPort.Open() of " + ID;
                     throw e;
                 }
             }
@@ -58,7 +61,7 @@ namespace PortMediator
             }
             catch(Exception e)
             {
-                e.Source = "BLEPeripheral.Close() of " + GetID() + " -> " + e.Source;
+                e.Source = "BLEPeripheral.Close() of " + ID + " -> " + e.Source;
                 throw e;
             }
         }
@@ -97,7 +100,7 @@ namespace PortMediator
             }
             catch(Exception e)
             {
-                e.Source = "BLEPort.StartReading() of " + GetID() + " -> " + e.Source;
+                e.Source = "BLEPort.StartReading() of " + ID + " -> " + e.Source;
                 throw e;
             }
         }
@@ -110,7 +113,7 @@ namespace PortMediator
             }
             catch (Exception e)
             {
-                e.Source = "BLEPort.StopReading() of " + GetID() + " -> " + e.Source;
+                e.Source = "BLEPort.StopReading() of " + ID + " -> " + e.Source;
                 throw e;
             }
         }
@@ -139,7 +142,7 @@ namespace PortMediator
             }
             catch(Exception e)
             {
-                e.Source = "BLEPort.SendData() of " + GetID() + " -> " + e.Source;
+                e.Source = "BLEPort.SendData() of " + ID + " -> " + e.Source;
                 throw e;
             }
         }
