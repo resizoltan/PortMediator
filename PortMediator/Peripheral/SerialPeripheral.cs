@@ -171,8 +171,8 @@ namespace PortMediator
                 Port port = new SerialPort(portName);
                 //port.PortClosed += PortClosedEventHandler;
                 port.Open();
-                NewPortEventArgs eventArgs = new NewPortEventArgs(port);
-                OnNewPortOpened(eventArgs);
+                PortRequestedEventArgs eventArgs = new PortRequestedEventArgs(port);
+                OnePortRequested(eventArgs);
             }
         }
 

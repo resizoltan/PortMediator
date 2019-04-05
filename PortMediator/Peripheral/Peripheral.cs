@@ -31,8 +31,8 @@ namespace PortMediator
         protected CancellationTokenSource sendTaskCTS = new CancellationTokenSource();
         protected CancellationTokenSource waitForConnectionRequestTaskCTS = new CancellationTokenSource();
 
-        public event EventHandler<BytesReceivedEventArgs> DataReceived;
-        public event EventHandler<NewClientEventArgs> NewClientConnected;
+        public event EventHandler<BytesReceivedEventArgs> BytesReceived;
+        public event EventHandler<ClientConnectionRequestedEventArgs> ClientConnectionRequested;
         public event EventHandler<PortClosedEventArgs> PortClosed;
 
         public abstract void Open();
@@ -58,7 +58,7 @@ namespace PortMediator
 
         protected void OnDataReceived(BytesReceivedEventArgs eventArgs)
         {
-            EventHandler<BytesReceivedEventArgs> handler = DataReceived;
+            EventHandler<BytesReceivedEventArgs> handler = BytesReceived;
             handler?.Invoke(this, eventArgs);
         }
         protected void OnClose(PortClosedEventArgs eventArgs)
@@ -76,8 +76,8 @@ namespace PortMediator
                     Client.TYPE type = Client.Identify((byte)(bytes[0]));
                     string name = Client.typenames[type] + "_" + Encoding.ASCII.GetString(bytes, 1, 2);
                     Client newClient = Client.CreateNew(type, name, this);
-                    NewClientEventArgs newClientEventArgs = new NewClientEventArgs(newClient);
-                    OnNewClient(newClientEventArgs);
+                    ClientConnectionRequestedEventArgs newClientEventArgs = new ClientConnectionRequestedEventArgs(newClient);
+                    OnClientConnectionRequested(newClientEventArgs);
                 }
                 catch(Exception e)
                 {
@@ -92,9 +92,9 @@ namespace PortMediator
                 this.StartWaitingForConnectionRequest();
             }
         }
-        protected void OnNewClient(NewClientEventArgs eventArgs)
+        protected void OnClientConnectionRequested(ClientConnectionRequestedEventArgs eventArgs)
         {
-            EventHandler<NewClientEventArgs> handler = NewClientConnected;
+            EventHandler<ClientConnectionRequestedEventArgs> handler = ClientConnectionRequested;
             handler?.Invoke(this, eventArgs);
         }
     }
@@ -105,7 +105,7 @@ namespace PortMediator
         protected Task listenForPortConnectionsTask = null;
         protected CancellationTokenSource listenForPortConnectionsTaskCTS = new CancellationTokenSource();
 
-        public EventHandler<NewPortEventArgs> NewPortOpened;
+        public EventHandler<PortRequestedEventArgs> PortRequested;
 
         public abstract void Start();
         public abstract void Stop();
@@ -114,9 +114,9 @@ namespace PortMediator
 
        // protected abstract void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs);
 
-        protected void OnNewPortOpened(NewPortEventArgs eventArgs)
+        protected void OnePortRequested(PortRequestedEventArgs eventArgs)
         {
-            EventHandler<NewPortEventArgs> handler = NewPortOpened;
+            EventHandler<PortRequestedEventArgs> handler = PortRequested;
             handler?.Invoke(this, eventArgs);
         }
     }
@@ -130,10 +130,10 @@ namespace PortMediator
         }
     }
 
-    public class NewClientEventArgs : EventArgs
+    public class ClientConnectionRequestedEventArgs : EventArgs
     {
         public Client client { get; set; }
-        public NewClientEventArgs(Client client)
+        public ClientConnectionRequestedEventArgs(Client client)
         {
             this.client = client;
         }
@@ -166,10 +166,10 @@ namespace PortMediator
         }
     }
 
-    public class NewPortEventArgs : EventArgs
+    public class PortRequestedEventArgs : EventArgs
     {
         public Port port { get; set; }
-        public NewPortEventArgs(Port port)
+        public PortRequestedEventArgs(Port port)
         {
             this.port = port;
         }

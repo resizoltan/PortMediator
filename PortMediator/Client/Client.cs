@@ -41,7 +41,7 @@ namespace PortMediator
             this.type = type;
             this.name = name;
             this.port = port;
-            this.port.DataReceived += ProcessReceivedData;
+            this.port.BytesReceived += ProcessReceivedData;
         }
 
         public static Client CreateNew(TYPE type, string name, Port port)
