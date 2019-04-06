@@ -10,7 +10,7 @@ using Windows.Storage.Streams;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
-
+ 
 namespace PortMediator
 {
     class BLEPort : Port
@@ -18,7 +18,7 @@ namespace PortMediator
         GattCharacteristic characteristic = null;
         BluetoothLEDevice device = null;
 
-        public BLEPort(ref BluetoothLEDevice device, GattCharacteristic characteristic, Action<Client> NewClientHandler) : base(NewClientHandler)
+        public BLEPort(BluetoothLEDevice device, GattCharacteristic characteristic)
         {
             this.device = device;
             this.characteristic = characteristic;
@@ -34,13 +34,13 @@ namespace PortMediator
 
         public async override void Open()
         {
-            if (device != null && 
-                device.ConnectionStatus == BluetoothConnectionStatus.Connected && 
+
+            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected &&
                 characteristic != null)
             {
                 GattCommunicationStatus status = await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
                     GattClientCharacteristicConfigurationDescriptorValue.Notify);
-                if(status == GattCommunicationStatus.Success)
+                if (status == GattCommunicationStatus.Success)
                 {
                     StartWaitingForConnectionRequest();
                 }
@@ -51,6 +51,8 @@ namespace PortMediator
                     throw e;
                 }
             }
+
+
         }
 
         public override void Close()
@@ -155,6 +157,7 @@ namespace PortMediator
 
 
         BluetoothLEAdvertisementWatcher watcher = null;
+        ManualResetEvent connectedToDeviceManualResetEvent = new ManualResetEvent(false);
         readonly string wantedDeviceLocalName = "JDY-10-V2.4";
         string wantedServiceUuidString = "0000ffe0-0000-1000-8000-00805f9b34fb";
         string wantedCharacteristicUuidString = "0000ffe1-0000-1000-8000-00805f9b34fb";
@@ -208,8 +211,15 @@ namespace PortMediator
 
                 BLEPort blePort = new BLEPort(device, characteristic);
 
-                PortRequestedEventArgs portEventArgs = new PortRequestedEventArgs(blePort);
-                OnPortRequested(portEventArgs);
+                device.ConnectionStatusChanged += (BluetoothLEDevice dev, object o) =>
+                {
+                    if (dev.ConnectionStatus == BluetoothConnectionStatus.Connected)
+                    {
+                        PortRequestedEventArgs portEventArgs = new PortRequestedEventArgs(blePort);
+                        OnPortRequested(portEventArgs);
+                    }
+                };
+
             }
             catch (Exception e)
             {
