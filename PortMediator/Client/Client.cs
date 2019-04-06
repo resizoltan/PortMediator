@@ -94,7 +94,7 @@ namespace PortMediator
         {
             try
             {
-                port.SendData(packet.rawData);
+                port.Write(packet.rawData);
             }
             catch(AggregateException e)
             {
@@ -107,8 +107,8 @@ namespace PortMediator
         {
             try
             {
-                port.SendData(closeSignal);
-                await port.SendTask;
+                port.Write(closeSignal);
+                await port.WriteTask;
                 port.Close();
                 await port.WaitForAllOperationsToComplete();
             }

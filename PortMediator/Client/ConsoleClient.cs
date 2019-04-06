@@ -17,7 +17,7 @@ namespace PortMediator
         {
             try
             {
-                port.SendData(packet.rawData);
+                port.Write(packet.rawData);
             }
             catch (AggregateException e)
             {

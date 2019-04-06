@@ -118,7 +118,7 @@ namespace PortMediator
             }
         }
 
-        public override void SendData(byte[] data)
+        public override void Write(byte[] data)
         {
             try
             {

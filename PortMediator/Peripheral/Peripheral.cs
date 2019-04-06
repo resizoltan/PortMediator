@@ -14,14 +14,14 @@ namespace PortMediator
         //protected Action<Client> NewClientHandler = null;
         
         protected Task readTask = null;
-        protected Task sendTask = null;
+        protected Task writeTask = null;
         protected Task waitForClientConnectionTask = null;
 
         public Task ReadTask {
             get { return readTask; }
         }
-        public Task SendTask {
-            get { return sendTask; }
+        public Task WriteTask {
+            get { return writeTask; }
         } 
         public Task WaitForConnectionRequestTask {
             get { return waitForClientConnectionTask; }
@@ -34,7 +34,9 @@ namespace PortMediator
         public event EventHandler<BytesReceivedEventArgs> BytesReceived;
         public event EventHandler<ClientConnectionRequestedEventArgs> ClientConnectionRequested;
         public event EventHandler<PortClosedEventArgs> PortClosed;
-        public event EventHandler<ExceptionOccuredEventArgs> ExceptionOccuredEventArgs;
+        public event EventHandler<ExceptionOccuredEventArgs> ReadTaskExceptionOccured;
+        public event EventHandler<ExceptionOccuredEventArgs> WriteTaskExceptionOccured;
+        public event EventHandler<ExceptionOccuredEventArgs> WaitForConnectionRequestTaskExceptionOccured;
 
 
         public abstract void Open();
@@ -42,7 +44,7 @@ namespace PortMediator
         public abstract void StartReading();
         public abstract void StartWaitingForConnectionRequest();
         public abstract void StopReading(Client client);
-        public abstract void SendData(byte[] data);
+        public abstract void Write(byte[] data);
 
         public abstract string ID { get; }
 
@@ -51,7 +53,7 @@ namespace PortMediator
             try
             {
                 await ReadTask;
-                await SendTask;
+                await WriteTask;
                 await WaitForConnectionRequestTask;
             }
             catch (NullReferenceException) { }
@@ -99,9 +101,19 @@ namespace PortMediator
             EventHandler<ClientConnectionRequestedEventArgs> handler = ClientConnectionRequested;
             handler?.Invoke(this, eventArgs);
         }
-        protected void OnExceptionOccured(ExceptionOccuredEventArgs eventArgs)
+        protected void OnReadExceptionOccured(ExceptionOccuredEventArgs eventArgs)
         {
-            EventHandler<ExceptionOccuredEventArgs> handler = ExceptionOccuredEventArgs;
+            EventHandler<ExceptionOccuredEventArgs> handler = ReadTaskExceptionOccured;
+            handler?.Invoke(this, eventArgs);
+        }
+        protected void OnWriteExceptionOccured(ExceptionOccuredEventArgs eventArgs)
+        {
+            EventHandler<ExceptionOccuredEventArgs> handler = WriteTaskExceptionOccured;
+            handler?.Invoke(this, eventArgs);
+        }
+        protected void OnWaitForConnectionRequestExceptionOccured(ExceptionOccuredEventArgs eventArgs)
+        {
+            EventHandler<ExceptionOccuredEventArgs> handler = WaitForConnectionRequestTaskExceptionOccured;
             handler?.Invoke(this, eventArgs);
         }
 
@@ -192,42 +204,41 @@ namespace PortMediator
         }
     }
 
-    public class PortException : Exception
-    {
-        public Port port { get; set; }
-        public PortException(Port port)
-        {
-            this.port = port;
-        }
-        public PortException(Port port, string source)
-        {
-            this.port = port;
-            this.Source = source;
-        }
-        public PortException(Port port, string source, string message)
-        {
-            this.port = port;
-            this.Source = source;
-        }
-        public PortException(Port port, Exception e):base(e.Message, e.InnerException)
-        {
-            this.port = port;
-            this.Source = source;
-        }
-    }
-
-    //public class AggregatePortException : AggregateException
+    //public class PortException : Exception
     //{
     //    public Port port { get; set; }
-    //    public AggregatePortException(Port port, string source, Exception[] e):base(e)
+    //    public PortException(Port port)
     //    {
+    //        this.port = port;
+    //    }
+    //    public PortException(Port port, string source)
+    //    {
+    //        this.port = port;
+    //        this.Source = source;
+    //    }
+    //    public PortException(Port port, string source, string message)
+    //    {
+    //        this.port = port;
+    //        this.Source = source;
+    //    }
+    //    public PortException(Port port, Exception e):base(e.Message, e.InnerException)
+    //    {
+    //        this.port = port;
+    //        this.Source = source;
     //    }
     //}
 
-    public class PortClosedException : PortException
+    ////public class AggregatePortException : AggregateException
+    ////{
+    ////    public Port port { get; set; }
+    ////    public AggregatePortException(Port port, string source, Exception[] e):base(e)
+    ////    {
+    ////    }
+    ////}
+
+    public class PortClosedException : Exception
     {
-        public PortClosedException(Port port):base(port) { }
-        public PortClosedException(Port port, string source):base(port, source) { }
+        public PortClosedException() : base("Port closed") { }
     }
 
 

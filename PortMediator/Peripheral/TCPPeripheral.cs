@@ -146,13 +146,13 @@ namespace PortMediator
             OnConnectionRequest(this, data);
         }
 
-        public override void SendData(byte[] data)
+        public override void Write(byte[] data)
         {
 
             if (tcpClient.Connected)
             {
                 NetworkStream outputStream = tcpClient.GetStream();
-                sendTask = outputStream.WriteAsync(data, 0, data.Length);
+                writeTask = outputStream.WriteAsync(data, 0, data.Length);
                 outputStream.Flush();
             }
         }

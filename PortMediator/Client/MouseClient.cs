@@ -17,7 +17,7 @@ namespace PortMediator
         {
             try
             {
-                port.SendData(packet.xcp);
+                port.Write(packet.xcp);
             }
             catch (AggregateException e)
             {
