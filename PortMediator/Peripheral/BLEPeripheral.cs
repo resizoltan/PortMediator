@@ -34,22 +34,21 @@ namespace PortMediator
 
         public async override void Open()
         {
-
-            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected &&
-                characteristic != null)
+            if(device.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
             {
-                GattCommunicationStatus status = await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
-                    GattClientCharacteristicConfigurationDescriptorValue.Notify);
-                if (status == GattCommunicationStatus.Success)
-                {
-                    StartWaitingForConnectionRequest();
-                }
-                else
-                {
-                    Exception e = new Exception("Subscribing to bluetooth GATT characteristic notifications failed, characteristic unreachable");
-                    e.Source = "BLEPort.Open() of " + ID;
-                    throw e;
-                }
+                throw new PortClosedException();
+            }
+
+            .AsTask<GattCommunicationStatus>();
+            if (status == GattCommunicationStatus.Success)
+            {
+                StartWaitingForConnectionRequest();
+            }
+            else
+            {
+                Exception e = new Exception("Subscribing to bluetooth GATT characteristic notifications failed, characteristic unreachable");
+                e.Source = "BLEPort.Open() of " + ID;
+                throw e;
             }
 
 
@@ -211,13 +210,29 @@ namespace PortMediator
 
                 BLEPort blePort = new BLEPort(device, characteristic);
 
-                device.ConnectionStatusChanged += (BluetoothLEDevice dev, object o) =>
+                device.ConnectionStatusChanged += async (BluetoothLEDevice dev, object o) =>
                 {
-                    if (dev.ConnectionStatus == BluetoothConnectionStatus.Connected)
+                    try
                     {
-                        PortRequestedEventArgs portEventArgs = new PortRequestedEventArgs(blePort);
-                        OnPortRequested(portEventArgs);
+                        if (dev.ConnectionStatus == BluetoothConnectionStatus.Connected)
+                        {
+                            GattCommunicationStatus status = await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                                                            GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                            PortRequestedEventArgs portEventArgs = new PortRequestedEventArgs(blePort);
+                            OnPortRequested(portEventArgs);
+                        }
                     }
+                    catch (Exception e)
+                    {
+                        if (dev != null)
+                        {
+                            dev.Dispose();
+                        }
+
+                        ExceptionOccuredEventArgs exceptionEventArgs = new ExceptionOccuredEventArgs(e);
+                        OnWaitForPortConnectionsExceptionOccured(exceptionEventArgs);
+                    }
+                    
                 };
 
             }
