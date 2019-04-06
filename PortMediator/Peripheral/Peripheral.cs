@@ -85,15 +85,14 @@ namespace PortMediator
                 }
                 catch(Exception e)
                 {
-                    Console.WriteLine("Error occured in Port.ConnectionRequested()");
-                    Console.WriteLine("Error source:  " + e.Source);
-                    Console.WriteLine("Error message: " + e.Message);
-                    this.StartWaitingForConnectionRequest();
+                    ExceptionOccuredEventArgs exceptionOccuredEventArgs = new ExceptionOccuredEventArgs(e);
+                    OnWaitForConnectionRequestExceptionOccured(exceptionOccuredEventArgs);
+                    StartWaitingForConnectionRequest();
                 }
             }
             else
             {
-                this.StartWaitingForConnectionRequest();
+                StartWaitingForConnectionRequest();
             }
         }
         protected void OnClientConnectionRequested(ClientConnectionRequestedEventArgs eventArgs)
