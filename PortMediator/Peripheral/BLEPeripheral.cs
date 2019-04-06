@@ -152,12 +152,14 @@ namespace PortMediator
 
     class BLEPeripheral : Peripheral
     {
+
+
         BluetoothLEAdvertisementWatcher watcher = null;
         readonly string wantedDeviceLocalName = "JDY-10-V2.4";
         string wantedServiceUuidString = "0000ffe0-0000-1000-8000-00805f9b34fb";
         string wantedCharacteristicUuidString = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
-        public BLEPeripheral(Action<Client> NewClientHandler) : base(NewClientHandler)
+        public BLEPeripheral()
         {
             watcher = new BluetoothLEAdvertisementWatcher();
 
@@ -173,35 +175,56 @@ namespace PortMediator
             watcher.Received += OnAdvertisementReceived;
         }
 
-        private async void OnAdvertisementReceived(BluetoothLEAdvertisementWatcher watcher, BluetoothLEAdvertisementReceivedEventArgs eventArgs)
+        public override void Start()
+        {
+            watcher.Start();
+        }
+
+        public override void Stop()
         {
             watcher.Stop();
+        }
+
+        public override string ID
+        {
+            get
+            {
+                return "BLEPeripheral";
+            }
+        }
+
+        private async void OnAdvertisementReceived(BluetoothLEAdvertisementWatcher watcher, BluetoothLEAdvertisementReceivedEventArgs eventArgs)
+        {
             BluetoothLEDevice device = null;
             try
             {
+                watcher.Stop();
+
                 device = await ConnectToDevice(eventArgs);
 
                 GattDeviceService service = GetServiceData(device, wantedServiceUuidString);
 
                 GattCharacteristic characteristic = GetCharacteristicData(service, wantedCharacteristicUuidString);
 
-                BLEPort blePort = new BLEPort(ref device, characteristic, NewClientHandler);
+                BLEPort blePort = new BLEPort(device, characteristic);
 
-                ports.Add(blePort);
-
-                blePort.Open();
+                PortRequestedEventArgs portEventArgs = new PortRequestedEventArgs(blePort);
+                OnPortRequested(portEventArgs);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                Console.WriteLine("Error occured in BLEPeripheral.OnAdvertisementReceived() during connecting to device " + eventArgs.Advertisement.LocalName);
-                Console.WriteLine("\tError source: " + e.Source);
-                Console.WriteLine("\tError message: " + e.Message);
-                if(device != null)
+                if (device != null)
                 {
                     device.Dispose();
                 }
+
+                ExceptionOccuredEventArgs exceptionEventArgs = new ExceptionOccuredEventArgs(e);
+                OnWaitForPortConnectionsExceptionOccured(exceptionEventArgs);
             }
-            watcher.Start();
+            finally
+            {
+                watcher.Start();
+            }
         }
 
         private async Task<BluetoothLEDevice> ConnectToDevice(BluetoothLEAdvertisementReceivedEventArgs eventArgs)
@@ -211,7 +234,6 @@ namespace PortMediator
             if (device == null)
             {
                 Exception e = new Exception("Connecting to bluetooth device failed");
-                e.Source = "ConnectToDevice()";
                 throw e;
             }
 
@@ -227,15 +249,7 @@ namespace PortMediator
             }
             catch
             {
-                Exception e = new Exception("Retrieving bluetooth GATT service data failed, more than one service found");
-                e.Source = "GetServiceData()";
-                throw e;
-            }
-
-            if (service == null)
-            {
-                Exception e = new Exception("Retrieving bluetooth GATT service data failed, service not found");
-                e.Source = "GetServiceData()";
+                Exception e = new Exception("Retrieving bluetooth GATT service data failed");
                 throw e;
             }
 
@@ -252,32 +266,12 @@ namespace PortMediator
             }
             catch
             {
-                Exception e = new Exception("Retrieving bluetooth GATT characteristic data failed, more than one characteristic found");
-                e.Source = "GetCharacteristicData()";
+                Exception e = new Exception("Retrieving bluetooth GATT characteristic data failed");
                 throw e;
             }
 
-            if (characteristic == null)
-            {
-                Exception e = new Exception("Retrieving bluetooth GATT characteristic data failed, characteristic not found");
-                e.Source = "GetCharacteristicData()";
-                throw e;
-            }
             return characteristic;
         }
-
-        public override void Start()
-        {
-            watcher.Start();
-        }
-
-        public override void Stop()
-        {
-            watcher.Stop();
-            base.Stop();
-            ports.Clear();
-        }
-
 
         //public override void Close()
         //{

@@ -123,9 +123,10 @@ namespace PortMediator
     {
         //protected List<Port> ports = new List<Port>();
         protected Task listenForPortConnectionsTask = null;
-        protected CancellationTokenSource listenForPortConnectionsTaskCTS = new CancellationTokenSource();
+        //protected CancellationTokenSource listenForPortConnectionsTaskCTS = new CancellationTokenSource();
 
-        public EventHandler<PortRequestedEventArgs> PortRequested;
+        public event EventHandler<PortRequestedEventArgs> PortRequested;
+        public event EventHandler<ExceptionOccuredEventArgs> WaitForPortConnectionsTaskExceptionOccured;
 
         public abstract void Start();
         public abstract void Stop();
@@ -134,11 +135,17 @@ namespace PortMediator
 
        // protected abstract void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs);
 
-        protected void OnePortRequested(PortRequestedEventArgs eventArgs)
+        protected void OnPortRequested(PortRequestedEventArgs eventArgs)
         {
             EventHandler<PortRequestedEventArgs> handler = PortRequested;
             handler?.Invoke(this, eventArgs);
         }
+        protected void OnWaitForPortConnectionsExceptionOccured(ExceptionOccuredEventArgs eventArgs)
+        {
+            EventHandler<ExceptionOccuredEventArgs> handler = WaitForPortConnectionsTaskExceptionOccured;
+            handler?.Invoke(this, eventArgs);
+        }
+
     }
 
     public class ConnectionRequestedEventArgs : EventArgs

@@ -166,13 +166,6 @@ namespace PortMediator
     {
         static readonly string[] defaultSerialPortNames = { "COM8", "COM13" };
 
-        public override string ID {
-            get
-            {
-                return "SerialPeripheral";
-            }
-        }
-
         public override void Start()
         {
             foreach (string portName in defaultSerialPortNames)
@@ -181,7 +174,7 @@ namespace PortMediator
                 //port.PortClosed += PortClosedEventHandler;
                 port.Open();
                 PortRequestedEventArgs eventArgs = new PortRequestedEventArgs(port);
-                OnePortRequested(eventArgs);
+                OnPortRequested(eventArgs);
             }
         }
 
@@ -190,9 +183,17 @@ namespace PortMediator
 
         }
 
+        public override string ID
+        {
+            get
+            {
+                return "SerialPeripheral";
+            }
+        }
+
         //protected override void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs)
         //{
-            
+
         //}
     }
 }
