@@ -32,39 +32,23 @@ namespace PortMediator
             }
         }
 
-        public async override void Open()
+        public override void Open()
         {
             if(device.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
             {
                 throw new PortClosedException();
             }
-
-            .AsTask<GattCommunicationStatus>();
-            if (status == GattCommunicationStatus.Success)
-            {
-                StartWaitingForConnectionRequest();
-            }
-            else
-            {
-                Exception e = new Exception("Subscribing to bluetooth GATT characteristic notifications failed, characteristic unreachable");
-                e.Source = "BLEPort.Open() of " + ID;
-                throw e;
-            }
-
-
+            StartWaitingForConnectionRequest();
         }
 
         public override void Close()
         {
-            try
+            if (device.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
             {
-                device.Dispose(); //what happens if there are other references to this device in other BLEPorts?
+                throw new PortClosedException();
             }
-            catch(Exception e)
-            {
-                e.Source = "BLEPeripheral.Close() of " + ID + " -> " + e.Source;
-                throw e;
-            }
+            device.Dispose(); 
+
         }
 
         public override void StartWaitingForConnectionRequest()
@@ -74,49 +58,50 @@ namespace PortMediator
 
         private void WaitingForConnectionCallback(GattCharacteristic gattCharacteristic, GattValueChangedEventArgs eventArgs)
         {
-            DataReader dataReader = DataReader.FromBuffer(eventArgs.CharacteristicValue);
-            byte[] data = new byte[dataReader.UnconsumedBufferLength];
-            dataReader.ReadBytes(data);
-            //data = Util.ClipTrailingNullFromString(data);
-            if(data.Length == connectionRequestMessageLength)
+            try
             {
-                OnConnectionRequest(this, data);
-                characteristic.ValueChanged -= WaitingForConnectionCallback;
+                DataReader dataReader = DataReader.FromBuffer(eventArgs.CharacteristicValue);
+                byte[] data = new byte[dataReader.UnconsumedBufferLength];
+                dataReader.ReadBytes(data);
+                if (data.Length == connectionRequestMessageLength)
+                {
+                    ConnectionRequestedEventArgs conReqEventArgs = new ConnectionRequestedEventArgs(data);
+                    OnConnectionRequest(conReqEventArgs);
+                    characteristic.ValueChanged -= WaitingForConnectionCallback;
+                }
+            }
+            catch(Exception e)
+            {
+                ExceptionOccuredEventArgs exceptionOccuredEventArgs = new ExceptionOccuredEventArgs(e);
+                OnWaitForConnectionRequestExceptionOccured(exceptionOccuredEventArgs);
             }
         }
 
         private void BLEDataReceived(GattCharacteristic gattCharacteristic, GattValueChangedEventArgs eventArgs)
         {
-            DataReader dataReader = DataReader.FromBuffer(eventArgs.CharacteristicValue);
-            byte[] data = new byte[dataReader.UnconsumedBufferLength];
-            dataReader.ReadBytes(data);
-            OnDataReceived(data);
+            try
+            {
+                DataReader dataReader = DataReader.FromBuffer(eventArgs.CharacteristicValue);
+                byte[] data = new byte[dataReader.UnconsumedBufferLength];
+                dataReader.ReadBytes(data);
+                BytesReceivedEventArgs bytesReceivedEventArgs = new BytesReceivedEventArgs(data);
+                OnDataReceived(bytesReceivedEventArgs);
+            }
+            catch (Exception e)
+            {
+                ExceptionOccuredEventArgs exceptionOccuredEventArgs = new ExceptionOccuredEventArgs(e);
+                OnWaitForConnectionRequestExceptionOccured(exceptionOccuredEventArgs);
+            }
         }
 
         public override void StartReading()
         {
-            try
-            {
-                characteristic.ValueChanged += BLEDataReceived;
-            }
-            catch(Exception e)
-            {
-                e.Source = "BLEPort.StartReading() of " + ID + " -> " + e.Source;
-                throw e;
-            }
+            characteristic.ValueChanged += BLEDataReceived;
         }
 
         public override void StopReading(Client client)
         {
-            try
-            {
-                characteristic.ValueChanged -= BLEDataReceived;
-            }
-            catch (Exception e)
-            {
-                e.Source = "BLEPort.StopReading() of " + ID + " -> " + e.Source;
-                throw e;
-            }
+            characteristic.ValueChanged -= BLEDataReceived;
         }
 
         public override void Write(byte[] data)
