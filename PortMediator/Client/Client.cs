@@ -112,17 +112,13 @@ namespace PortMediator
                 port.Close();
                 await port.WaitForAllOperationsToComplete();
             }
-            catch (AggregateException e)
-            {
-                throw e.InnerException;
-            }
             catch (NullReferenceException) { }
 
         }
 
         public virtual void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
         {
-            packetInReceiving = Communication.Packet.CreateNewFromRaw(eventArgs.bytes, false);
+            packetInReceiving = Communication.Packet.CreateNewFromRaw(eventArgs.data, false);
             OnPacketReadyForTransfer(packetInReceiving);
             packetInReceiving.Clear();
         }

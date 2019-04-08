@@ -22,14 +22,7 @@ namespace PortMediator
         {
             this.device = device;
             this.characteristic = characteristic;
-        }
-
-        public override string ID
-        {
-            get
-            {
-                return "BLE GATT Characteristic with UUID " + characteristic.Uuid.ToString();
-            }
+            this.id = "BLE GATT Characteristic with UUID " + characteristic.Uuid.ToString();
         }
 
         public override void Open()

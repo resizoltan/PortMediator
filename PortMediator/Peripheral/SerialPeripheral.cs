@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO.Ports;
+using System.IO;
 
 namespace PortMediator
 {
@@ -18,6 +19,7 @@ namespace PortMediator
             port.BaudRate = 115200;
             port.Parity = Parity.None;
             port.ReadBufferSize = 100;
+            this.id = "SerialPort " + port.PortName;
         }
 
         public override void Open()
@@ -73,7 +75,7 @@ namespace PortMediator
                     {
                         dataLength = await port.BaseStream.ReadAsync(buffer, 0, 1);
                     }
-                    catch(ObjectDisposedException)
+                    catch(IOException)
                     {
                         throw new PortClosedException();
                     }
@@ -100,14 +102,6 @@ namespace PortMediator
             //{
                 Close();
             //}
-        }
-
-        public override string ID
-        {
-            get
-            {
-                return "SerialPort " + port.PortName;
-            }
         }
 
         public override void StartWaitingForConnectionRequest()
@@ -172,7 +166,7 @@ namespace PortMediator
             {
                 Port port = new SerialPort(portName);
                 //port.PortClosed += PortClosedEventHandler;
-                port.Open();
+                //port.Open();
                 PortRequestedEventArgs eventArgs = new PortRequestedEventArgs(port);
                 OnPortRequested(eventArgs);
             }

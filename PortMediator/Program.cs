@@ -108,7 +108,7 @@ namespace PortMediator
             }
             catch(Exception e)
             {
-                Util.DisplayExceptionInfo(e, "in PortRequestedHandler");
+                Util.DisplayExceptionInfo(e, "in PortRequest of " + eventArgs.port.ID);
             }
         }
 
@@ -116,7 +116,9 @@ namespace PortMediator
         {
             Client newClient = eventArgs.client;
             AddDataFlow(newClient);
+            
             clientsByType[newClient.type].Add(newClient);
+            unidentifiedPorts.Remove(newClient.port);
             newClient.StartReading();
 
             Console.WriteLine("New Client: " + newClient.name);
@@ -142,12 +144,14 @@ namespace PortMediator
                     Util.DisplayExceptionInfo(e, "PortClosedEventHandler of " + port.ID);
                 }
             }
+
+            Console.WriteLine("Port removed: " + port.ID + ", initiator: " + eventArgs.initiator);
            
         }
 
         static void PortExceptionOccuredEventHandler(object sender, ExceptionOccuredEventArgs eventArgs)
         {
-            Util.DisplayExceptionInfo(eventArgs.exception, "in " + ((Peripheral)sender).ID);
+            Util.DisplayExceptionInfo(eventArgs.exception, "in " + ((Port)sender).ID);
         }
 
         static void WaitForPortConnectionsTaskExceptionEventHandler(object sender, ExceptionOccuredEventArgs eventArgs)
@@ -225,8 +229,6 @@ namespace PortMediator
             {
                 Util.DisplayExceptionInfo(e, "during closing peripherals");
             }
-            Console.Read();
-
 
         }
 

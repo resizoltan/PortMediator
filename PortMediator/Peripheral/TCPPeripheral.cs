@@ -14,21 +14,13 @@ namespace PortMediator
     {
         private TcpClient tcpClient = null;
         const int bufferSize = 1024;
-        public event EventHandler<EventArgs> closed;
 
         public TCPPort(TcpClient tcpClient)
         {
             this.tcpClient = tcpClient;
             this.tcpClient.ReceiveBufferSize = bufferSize;
             this.tcpClient.SendBufferSize = bufferSize;
-        }
-
-        public override string ID
-        {
-            get
-            {
-                return "TCP remote endpoint " + tcpClient.Client.RemoteEndPoint.ToString();
-            }
+            this.id = "TCP remote endpoint " + tcpClient.Client.RemoteEndPoint.ToString(); 
         }
 
         public override void Open()
@@ -49,6 +41,7 @@ namespace PortMediator
 
             tcpClient.Client.Shutdown(SocketShutdown.Both);
             tcpClient.Client.Close();
+
 
         }
 
@@ -78,6 +71,8 @@ namespace PortMediator
                     if (dataLength == 0)
                     {
                         Close();
+                        PortClosedEventArgs portClosedEventArgs = new PortClosedEventArgs("Remote tcp endpoint");
+                        OnClose(portClosedEventArgs);
                         break;
                     }
                     byte[] data = new byte[dataLength];
@@ -213,10 +208,13 @@ namespace PortMediator
         {
             try
             {
-                TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync();
-                TCPPort tcpPort = new TCPPort(tcpClient);
-                PortRequestedEventArgs eventArgs = new PortRequestedEventArgs(tcpPort);
-                OnPortRequested(eventArgs);
+                while (true)
+                {
+                    TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync();
+                    TCPPort tcpPort = new TCPPort(tcpClient);
+                    PortRequestedEventArgs eventArgs = new PortRequestedEventArgs(tcpPort);
+                    OnPortRequested(eventArgs);
+                }
             }
             catch(Exception e)
             {

@@ -10,7 +10,8 @@ namespace PortMediator
     public abstract class Port
     {
         protected const int connectionRequestMessageLength = 3;
-        
+        protected string id;
+
         protected Task readTask = null;
         protected Task writeTask = null;
         protected Task waitForClientConnectionTask = null;
@@ -44,7 +45,12 @@ namespace PortMediator
         public abstract void StopReading(Client client);
         public abstract void Write(byte[] data);
 
-        public abstract string ID { get; }
+        public string ID {
+            get
+            {
+                return id;
+            }
+        }
 
         public async Task WaitForAllOperationsToComplete()
         {
@@ -171,10 +177,10 @@ namespace PortMediator
 
     public class BytesReceivedEventArgs : EventArgs
     {
-        public byte[] bytes { get; set; }
+        public byte[] data { get; set; }
         public BytesReceivedEventArgs(byte[] bytes)
         {
-            this.bytes = bytes;
+            this.data = bytes;
         }
     }
 
