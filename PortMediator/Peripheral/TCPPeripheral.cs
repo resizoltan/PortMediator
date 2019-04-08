@@ -16,12 +16,11 @@ namespace PortMediator
         const int bufferSize = 1024;
         public event EventHandler<EventArgs> closed;
 
-        public TCPPort(TcpClient tcpClient, Action<Client> NewClientHandler) : base(NewClientHandler)
+        public TCPPort(TcpClient tcpClient)
         {
             this.tcpClient = tcpClient;
             this.tcpClient.ReceiveBufferSize = bufferSize;
             this.tcpClient.SendBufferSize = bufferSize;
-            //StartWaitingForConnectionRequest();
         }
 
         public override string ID
@@ -34,15 +33,11 @@ namespace PortMediator
 
         public override void Open()
         {
-            try
+            if (!tcpClient.Connected)
             {
-                StartWaitingForConnectionRequest();
+                throw new PortClosedException();
             }
-            catch (Exception e)
-            {
-                e.Source = "PortMediator.TCPPort.Open() of " + ID + " -> " + e.Source;
-                throw e;
-            }
+            StartWaitingForConnectionRequest();
         }
 
         public override void Close()
@@ -104,15 +99,7 @@ namespace PortMediator
 
         public override void StartWaitingForConnectionRequest()
         {
-            if (!tcpClient.Connected)
-            {
-                Exception e = new Exception("TcpClient not connected");
-                e.Source = "StartWaitingForConnectionRequest()";
-                throw e;
-            }
-
             waitForClientConnectionTask = MonitorPort();
-
         }
 
         private async Task MonitorPort()
@@ -120,30 +107,42 @@ namespace PortMediator
             byte[] buffer = new byte[connectionRequestMessageLength];
             byte[] data = new byte[connectionRequestMessageLength];
             int bytesRead = 0;
-            while (bytesRead != connectionRequestMessageLength && 
-                tcpClient.Connected && 
-                !waitForConnectionRequestTaskCTS.IsCancellationRequested)
+            while (bytesRead != connectionRequestMessageLength)
             {
-                NetworkStream inputStream = tcpClient.GetStream();
-                int dataLength = 0;
-                dataLength = await inputStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
-                if (dataLength == 0)
+                try
                 {
-                    Close();
-                    break;
+                    if (!tcpClient.Connected)
+                    {
+                        throw new PortClosedException();
+                    }
+                    NetworkStream inputStream = tcpClient.GetStream();
+                    int dataLength = 0;
+                    dataLength = await inputStream.ReadAsync(buffer, 0, connectionRequestMessageLength);
+                    if (dataLength == 0)
+                    {
+                        Close();
+                        break;
+                    }
+                    else if (dataLength <= connectionRequestMessageLength - bytesRead)
+                    {
+                        Array.Copy(buffer, 0, data, bytesRead, dataLength);
+                        bytesRead += dataLength;
+                    }
+                    else
+                    {
+                        Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
+                        bytesRead = connectionRequestMessageLength;
+                    }
                 }
-                else if(dataLength <= connectionRequestMessageLength - bytesRead)
+                catch(Exception e)
                 {
-                    Array.Copy(buffer, 0, data, bytesRead, dataLength);
-                    bytesRead += dataLength;
+                    ExceptionOccuredEventArgs exceptionOccuredEventArgs = new ExceptionOccuredEventArgs(e);
+                    OnReadExceptionOccured(exceptionOccuredEventArgs);
                 }
-                else
-                {
-                    Array.Copy(buffer, 0, data, bytesRead, connectionRequestMessageLength - bytesRead);
-                    bytesRead = connectionRequestMessageLength;
-                }
+               
             }
-            OnConnectionRequest(this, data);
+            ConnectionRequestedEventArgs eventArgs = new ConnectionRequestedEventArgs(data);
+            OnConnectionRequest(eventArgs);
         }
 
         public override void Write(byte[] data)
@@ -178,7 +177,14 @@ namespace PortMediator
         TcpListener tcpListener = null;
         CancellationTokenSource acceptTcpClientTaskCTS = new CancellationTokenSource();
 
-        public TCPPeripheral(Action<Client> NewClientHandler):base(NewClientHandler)
+        public override string ID {
+            get
+            {
+                return "TCPPeripheral on " + localEndPoint.ToString();
+            }
+        }
+
+        public TCPPeripheral()
         {
             try
             {
@@ -192,75 +198,38 @@ namespace PortMediator
             }
             catch(Exception e)
             {
-                Console.WriteLine("Error occured in TCPPeripheral()");
-                Console.WriteLine("\tError source: " + e.Source);
-                Console.WriteLine("\tError message: " + e.Message);
+                Console.WriteLine(e.Message);
             }
         }
 
         public override void Start()
         {
-            try
-            {
-                tcpListener.Start();
-                CancellationToken acceptTcpClientTaskCT = acceptTcpClientTaskCTS.Token;
-                listenForPortConnectionsTask = WaitForPortConnections();
-            }
-            catch(AggregateException e)
-            {
-                Console.WriteLine("Error occured in TCPPeripheral.Start() of " + localEndPoint.ToString());
-                foreach (Exception innerException in e.InnerExceptions)
-                {
-                    Console.WriteLine("\tError source: " + innerException.Source);
-                    Console.WriteLine("\tError message: " + innerException.Message);
-                }
-            }
-            
+            tcpListener.Start();
+            //CancellationToken acceptTcpClientTaskCT = acceptTcpClientTaskCTS.Token;
+            listenForPortConnectionsTask = WaitForPortConnections();
         }
 
         private async Task WaitForPortConnections()
         {
-            while (!acceptTcpClientTaskCTS.IsCancellationRequested)
+            try
             {
-
                 TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync();
-                TCPPort tcpPort = new TCPPort(tcpClient, NewClientHandler);
-                tcpPort.closed += PortClosed;
-                ports.Add(tcpPort);
-                tcpPort.Open();
+                TCPPort tcpPort = new TCPPort(tcpClient);
+                PortRequestedEventArgs eventArgs = new PortRequestedEventArgs(tcpPort);
+                OnPortRequested(eventArgs);
             }
-        }
-
-        private void PortClosed(object sender, EventArgs eventArgs)
-        {
-            Port port = (Port)sender;
-            ports.Remove((Port)port);
-            Console.WriteLine("Port " + port.ID + " closed");
+            catch(Exception e)
+            {
+                ExceptionOccuredEventArgs eventArgs = new ExceptionOccuredEventArgs(e);
+                OnWaitForPortConnectionsExceptionOccured(eventArgs);
+            }
         }
 
         public override void Stop()
         {
-            base.Stop();
-            acceptTcpClientTaskCTS.Cancel();
             tcpListener.Stop();
-            //try
-            //{
-            listenForPortConnectionsTask.Wait();
-            //}
-            //catch (AggregateException e)
-            //{
-            //    Console.WriteLine("Error occured in TCPPeripheral.Stop()");
-            //    foreach (Exception innerException in e.InnerExceptions)
-            //    {
-            //        Console.WriteLine("\tError source: " + innerException.Source);
-            //        Console.WriteLine("\tError message: " + innerException.Message);
-            //    }
-            //}
         }
 
-        //public override void Close()
-        //{
-        //    throw new NotImplementedException();
-        //}
+
     }
 }
