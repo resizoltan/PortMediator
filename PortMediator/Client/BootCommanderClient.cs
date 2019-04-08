@@ -13,11 +13,11 @@ namespace PortMediator
 
         }
 
-        public override void SendData(Communication.Packet packet)
+        public override void SendData(object receivedFromClient, PacketReceivedEventArgs eventArgs)
         {
             try
             {
-                port.Write(packet.xcpBootCommander);
+                port.Write(eventArgs.packet.xcpBootCommander);
             }
             catch (AggregateException e)
             {

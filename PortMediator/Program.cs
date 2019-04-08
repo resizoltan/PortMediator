@@ -11,17 +11,19 @@ namespace PortMediator
     {
         //static Program program = new Program();
 
-        static Peripheral serialPeripheral = new SerialPeripheral();
-        static Peripheral blePeripheral = new BLEPeripheral(NewClientHandler);
-        static Peripheral tcpPeripheral = new TCPPeripheral(NewClientHandler);
+        static Peripheral serialPeripheral = null;
+        static Peripheral blePeripheral = null;
+        static Peripheral tcpPeripheral = null;
 
+        static List<Port> unidentifiedPorts = null;
 
         static Dictionary<Client.TYPE, List<Client>> clientsByType = null;
-        static List<Channel> channels = null;
+
+        //static List<Channel> channels = null;
         static Dictionary<Client.TYPE, List<Client.TYPE>> dataFlowRules = null;
         //static Dictionary<Client, List<Client>> dataDestinations = new Dictionary<Client, List<Client>>();
         //static Dictionary<Client, Action<byte[]>> dataListeners = new Dictionary<Client, Action<byte[]>>();
-        static Action<Client> dataFlowAddClient = null;
+        //static Action<Client> dataFlowAddClient = null;
 
         static Client[] clients
         {
@@ -45,24 +47,114 @@ namespace PortMediator
 
         static void Main(string[] args)
         {
-            Program.Init();
-            Program.Run();
-            
+            bool success = true;
+            try
+            {
+                Program.Init();
+            }
+            catch (Exception e)
+            {
+                Util.DisplayExceptionInfo(e, "during initialization");
+                success = false;
+            }
+            if (success)
+            {
+                Program.Run();
+            }
+
+            Console.ReadKey();
+
         }
 
         static void Init()
         {
+            serialPeripheral = new SerialPeripheral();
+            blePeripheral = new BLEPeripheral();
+            tcpPeripheral = new TCPPeripheral();
+
+            serialPeripheral.PortRequested += PortRequestedEventHandler;
+            blePeripheral.PortRequested += PortRequestedEventHandler;
+            tcpPeripheral.PortRequested += PortRequestedEventHandler;
+
+            serialPeripheral.WaitForPortConnectionsTaskExceptionOccured += WaitForPortConnectionsTaskExceptionEventHandler;
+            blePeripheral.WaitForPortConnectionsTaskExceptionOccured += WaitForPortConnectionsTaskExceptionEventHandler;
+            tcpPeripheral.WaitForPortConnectionsTaskExceptionOccured += WaitForPortConnectionsTaskExceptionEventHandler;
+
+            unidentifiedPorts = new List<Port>();
+
             clientsByType = new Dictionary<Client.TYPE, List<Client>>();
             for (int type = 0; type < (int)Client.TYPE.TYPECOUNT; type++)
             {
                 clientsByType.Add((Client.TYPE)type, new List<Client>());
             }
 
-            channels = new List<Channel>();
-
             dataFlowRules = DataFlowRules.CreateNew(DataFlowRules.AllToAll);
 
         }
+
+        static void PortRequestedEventHandler(object sender, PortRequestedEventArgs eventArgs)
+        {
+            try
+            {
+                Port port = eventArgs.port;
+                port.Open();
+                port.ClientConnectionRequested += ClientConnectionRequestedEventHandler;
+                port.PortClosed += PortClosedEventHandler;
+                port.ReadTaskExceptionOccured += PortExceptionOccuredEventHandler;
+                port.WriteTaskExceptionOccured += PortExceptionOccuredEventHandler;
+                port.WaitForConnectionRequestTaskExceptionOccured += PortExceptionOccuredEventHandler;
+
+                unidentifiedPorts.Add(port);
+            }
+            catch(Exception e)
+            {
+                Util.DisplayExceptionInfo(e, "in PortRequestedHandler");
+            }
+        }
+
+        static void ClientConnectionRequestedEventHandler(object sender, ClientConnectionRequestedEventArgs eventArgs)
+        {
+            Client newClient = eventArgs.client;
+            AddDataFlow(newClient);
+            clientsByType[newClient.type].Add(newClient);
+            newClient.StartReading();
+
+            Console.WriteLine("New Client: " + newClient.name);
+        }
+
+        static void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs)
+        {
+            Port port = (Port)sender;
+            if (unidentifiedPorts.Contains(port))
+            {
+                unidentifiedPorts.Remove(port);
+            }
+            else
+            {
+                try
+                {
+                    Client client = clients.Single(c => c.port == port);
+                    RemoveDataFlow(client);
+                    clientsByType[client.type].Remove(client);
+                }
+                catch (Exception e)
+                {
+                    Util.DisplayExceptionInfo(e, "PortClosedEventHandler of " + port.ID);
+                }
+            }
+           
+        }
+
+        static void PortExceptionOccuredEventHandler(object sender, ExceptionOccuredEventArgs eventArgs)
+        {
+            Util.DisplayExceptionInfo(eventArgs.exception, "in " + ((Peripheral)sender).ID);
+        }
+
+        static void WaitForPortConnectionsTaskExceptionEventHandler(object sender, ExceptionOccuredEventArgs eventArgs)
+        {
+            Util.DisplayExceptionInfo(eventArgs.exception, "in WaitForPortConnectionsTask of " + ((Peripheral)sender).ID); 
+        }
+
         static class DataFlowRules
         {
 
@@ -87,10 +179,10 @@ namespace PortMediator
 
             public static Dictionary<Client.TYPE, List<Client.TYPE>> AllToAll = new Dictionary<Client.TYPE, List<Client.TYPE>>
             {
-                [Client.TYPE.CONSOLE] = new List<Client.TYPE> { Client.TYPE.MATLAB, Client.TYPE.CONSOLE, Client.TYPE.MOUSE },
-                [Client.TYPE.MATLAB] = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB },
-                [Client.TYPE.BOOTCOMMANDER] = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB },
-                [Client.TYPE.MOUSE] = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB, Client.TYPE.BOOTCOMMANDER }
+                [Client.TYPE.CONSOLE]       = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB, Client.TYPE.BOOTCOMMANDER },
+                [Client.TYPE.MATLAB]        = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB, Client.TYPE.BOOTCOMMANDER },
+                [Client.TYPE.BOOTCOMMANDER] = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB, Client.TYPE.BOOTCOMMANDER },
+                [Client.TYPE.MOUSE]         = new List<Client.TYPE> { Client.TYPE.CONSOLE, Client.TYPE.MOUSE, Client.TYPE.MATLAB, Client.TYPE.BOOTCOMMANDER }
             };
         }
       
@@ -98,8 +190,14 @@ namespace PortMediator
         static void Run()
         {
             Console.WriteLine("PortMediator v2");
-            Console.WriteLine("Opening peripherals...");
-            OpenAll();
+            try
+            {
+                OpenAll();
+            }
+            catch(Exception e)
+            {
+                Util.DisplayExceptionInfo(e, "during opening peripherals");
+            }
             //TCPTestClient tcpTestClient = new TCPTestClient();
             //tcpTestClient.StartClient(TCPPeripheral.localEndPoint);
             //tcpTestClient.StartReading();
@@ -119,7 +217,14 @@ namespace PortMediator
             } while (input != "exit");
 
 
-            CloseAll();
+            try
+            {
+                CloseAll();
+            }
+            catch (Exception e)
+            {
+                Util.DisplayExceptionInfo(e, "during closing peripherals");
+            }
             Console.Read();
 
 
@@ -134,71 +239,60 @@ namespace PortMediator
 
         static void CloseAll()
         {
-            try
+            foreach (Client client in clients)
             {
-                foreach (Client client in clients)
-                {
-                    client.Close();
-                }
-                serialPeripheral.Stop();
-                blePeripheral.Stop();
-                tcpPeripheral.Stop();
+                client.Close();
             }
-            catch(AggregateException e)
-            {
-                Console.WriteLine("Error occured in CloseAll()");
-                foreach (Exception innerException in e.InnerExceptions)
-                {
-                    Console.WriteLine("\tError source: " + innerException.Source);
-                    Console.WriteLine("\tError message: " + innerException.Message);
-                    Console.WriteLine("\tError stack trace: " + innerException.StackTrace);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error occured in CloseAll()");
-                Console.WriteLine("\tError source:  " + e.Source);
-                Console.WriteLine("\tError message: " + e.Message);
-            }
-
+            serialPeripheral.Stop();
+            blePeripheral.Stop();
+            tcpPeripheral.Stop();
         }
 
-        static void NewClientHandler(Client client)
+        static void AddDataFlow(Client newClient)
         {
-            AddClient(client);
-            client.StartReading();
-
-            Console.WriteLine("New Client: " + client.name);
-        }
-
-        static void AddClient(Client newClient)
-        {
-            foreach(List<Client> clientList in clientsByType.Values)
+            foreach(Client client in clients)
             {
-                foreach(Client client in clientList)
+                bool isSubscribingToNew = dataFlowRules[newClient.type].Contains(client.type);
+                bool isNewSubscribing = dataFlowRules[client.type].Contains(newClient.type);
+
+                if(isSubscribingToNew)
                 {
-                    bool isSubscribingToNew = dataFlowRules[newClient.type].Contains(client.type);
-                    bool isNewSubscribing = dataFlowRules[client.type].Contains(newClient.type);
-                    Channel channel = null;
-                    if (isSubscribingToNew && isNewSubscribing)
-                    {
-                        channel = Channel.CreateTwoWay(newClient, client);
-                    }
-                    else if(isSubscribingToNew)
-                    {
-                        channel = Channel.CreateOneWay(client, newClient);
-                    }
-                    else if (isNewSubscribing)
-                    {
-                        channel = Channel.CreateOneWay(newClient, client);
-                    }
-                    if(channel != null)
-                    {
-                        channels.Add(channel);
-                    }
+                    newClient.DataReceived += client.SendData;
+                }
+                if (isNewSubscribing)
+                {
+                    client.DataReceived += newClient.SendData;
                 }
             }
-            clientsByType[newClient.type].Add(newClient);
+        }
+
+        static void RemoveDataFlow(Client deletedClient)
+        {
+            foreach (Client client in clients)
+            {
+                try
+                {
+                    if (client != deletedClient)
+                    {
+                        bool isSubscribingToDeleted = dataFlowRules[deletedClient.type].Contains(client.type);
+                        bool isDeletedSubscribing = dataFlowRules[client.type].Contains(deletedClient.type);
+
+                        if (isSubscribingToDeleted)
+                        {
+                            deletedClient.DataReceived -= client.SendData;
+                        }
+                        if (isDeletedSubscribing)
+                        {
+                            client.DataReceived -= deletedClient.SendData;
+                        }
+                    }
+                }
+                catch(Exception e)
+                {
+                    Util.DisplayExceptionInfo(e, "in RemoveDataFlow of " + deletedClient.name + ", other client: " + client.name);
+                }
+               
+            }
         }
     }
 }

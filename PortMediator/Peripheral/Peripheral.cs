@@ -10,8 +10,6 @@ namespace PortMediator
     public abstract class Port
     {
         protected const int connectionRequestMessageLength = 3;
-
-        //protected Action<Client> NewClientHandler = null;
         
         protected Task readTask = null;
         protected Task writeTask = null;
@@ -120,7 +118,6 @@ namespace PortMediator
 
     public abstract class Peripheral
     {
-        //protected List<Port> ports = new List<Port>();
         protected Task listenForPortConnectionsTask = null;
         //protected CancellationTokenSource listenForPortConnectionsTaskCTS = new CancellationTokenSource();
 
@@ -131,8 +128,6 @@ namespace PortMediator
         public abstract void Stop();
 
         public abstract string ID { get; }
-
-       // protected abstract void PortClosedEventHandler(object sender, PortClosedEventArgs eventArgs);
 
         protected void OnPortRequested(PortRequestedEventArgs eventArgs)
         {

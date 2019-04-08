@@ -191,20 +191,15 @@ namespace PortMediator
 
         public TCPPeripheral()
         {
-            try
-            {
-                //IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
-                //IPAddress foundLocalIPAddress = ipHostInfo.AddressList.Single(
-                //    ipAddress => ipAddress.Address == wantedLocalIPAdressBytes);
-                
-                localEndPoint = new IPEndPoint(wantedLocalIPAddress, localPortNumber);
 
-                tcpListener = new TcpListener(localEndPoint);
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
+            //IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
+            //IPAddress foundLocalIPAddress = ipHostInfo.AddressList.Single(
+            //    ipAddress => ipAddress.Address == wantedLocalIPAdressBytes);
+                
+            localEndPoint = new IPEndPoint(wantedLocalIPAddress, localPortNumber);
+
+            tcpListener = new TcpListener(localEndPoint);
+
         }
 
         public override void Start()

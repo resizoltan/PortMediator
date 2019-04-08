@@ -29,7 +29,7 @@ namespace PortMediator
         };
         static readonly byte[] closeSignal = { 0xfc };
 
-        protected Port port;
+        public Port port { get; }
         public TYPE type { get; }
         public string name { get; set; }
         protected Communication.Packet packetInReceiving = new Communication.Packet();
@@ -62,7 +62,7 @@ namespace PortMediator
                     client = new BootCommanderClient(name, port);
                     break;
                 default:
-                    client = new Client(type, name, port);
+                    client = new Client(TYPE.UNIDENTIFIED, name, port);
                     break;
             }
             return client;
@@ -90,11 +90,11 @@ namespace PortMediator
             port.StartReading();
         }
 
-        public virtual void SendData(Communication.Packet packet)
+        public virtual void SendData(object receivedFromClient, PacketReceivedEventArgs eventArgs)
         {
             try
             {
-                port.Write(packet.rawData);
+                port.Write(eventArgs.packet.rawData);
             }
             catch(AggregateException e)
             {
@@ -122,7 +122,7 @@ namespace PortMediator
 
         public virtual void ProcessReceivedData(object port, BytesReceivedEventArgs eventArgs)
         {
-            packetInReceiving = Communication.Packet.CreateNewFromRaw(eventArgs.data, false);
+            packetInReceiving = Communication.Packet.CreateNewFromRaw(eventArgs.bytes, false);
             OnPacketReadyForTransfer(packetInReceiving);
             packetInReceiving.Clear();
         }
@@ -132,17 +132,10 @@ namespace PortMediator
             EventHandler<PacketReceivedEventArgs> handler = DataReceived;
             if (handler != null)
             {
-                PacketReceivedEventArgs args = new PacketReceivedEventArgs();
-                args.packet = packet;
+                PacketReceivedEventArgs args = new PacketReceivedEventArgs(packet);
                 handler(this, args);
             }
-            else
-            {
-                /*cannot catch this exception, function is on a callback stack*/
-                //Exception e = new Exception("DataReceived event handler is null, packet discarded");
-                //e.Source = "Client.OnPacketReadyForTransfer() of client " + name;
-                //throw e;
-            }
+
         }
 
     }

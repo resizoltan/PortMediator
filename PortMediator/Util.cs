@@ -34,6 +34,14 @@ namespace PortMediator
             }
             return dataBytes;
         }
+
+        public static void DisplayExceptionInfo(Exception e, string whereHappened)
+        {
+            Console.WriteLine("Error " + whereHappened);
+            Console.WriteLine("Source: " + e.Source);
+            Console.WriteLine("Target Site: " + e.TargetSite);
+            Console.WriteLine("Message: " + e.Message);
+        }
     }
 
 
