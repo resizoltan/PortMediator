@@ -68,33 +68,42 @@ namespace PortMediator
         {
             if (!tcpClient.Connected)
             {
-                Exception e = new Exception("TcpClient not connected");
-                e.Source = "StartReading()";
-                throw e;
+                throw new PortClosedException();
             }
-
             readTask = Read();
         }
 
         public async Task Read()
         {
-            byte[] buffer = new byte[tcpClient.ReceiveBufferSize];
-            while (tcpClient.Connected && !waitForConnectionRequestTaskCTS.IsCancellationRequested)
+            try
             {
-                NetworkStream inputStream = tcpClient.GetStream();
-                int dataLength = 0;
-
-                dataLength = await inputStream.ReadAsync(buffer, 0, 100);
-
-                if (dataLength == 0)
+                byte[] buffer = new byte[tcpClient.ReceiveBufferSize];
+                while (true)
                 {
-                    Close();
-                    break;
+                    if (!tcpClient.Connected)
+                    {
+                        throw new PortClosedException();
+                    }
+                    NetworkStream inputStream = tcpClient.GetStream();
+                    int dataLength = await inputStream.ReadAsync(buffer, 0, 100);
+
+                    if (dataLength == 0)
+                    {
+                        Close();
+                        break;
+                    }
+                    byte[] data = new byte[dataLength];
+                    Array.Copy(buffer, data, dataLength);
+                    BytesReceivedEventArgs eventArgs = new BytesReceivedEventArgs(data);
+                    OnDataReceived(eventArgs);
                 }
-                byte[] data = new byte[dataLength];
-                Array.Copy(buffer, data, dataLength);
-                OnDataReceived(data);
             }
+            catch(Exception e)
+            {
+                ExceptionOccuredEventArgs eventArgs = new ExceptionOccuredEventArgs(e);
+                OnReadExceptionOccured(eventArgs);
+            }
+           
         }
 
         public override void StartWaitingForConnectionRequest()
@@ -147,12 +156,20 @@ namespace PortMediator
 
         public override void Write(byte[] data)
         {
-
-            if (tcpClient.Connected)
+            try
             {
+                if (!tcpClient.Connected)
+                {
+                    throw new PortClosedException();
+                }
                 NetworkStream outputStream = tcpClient.GetStream();
                 writeTask = outputStream.WriteAsync(data, 0, data.Length);
                 outputStream.Flush();
+            }
+            catch (Exception e)
+            {
+                ExceptionOccuredEventArgs eventArgs = new ExceptionOccuredEventArgs(e);
+                OnWriteExceptionOccured(eventArgs);
             }
         }
 
@@ -163,7 +180,7 @@ namespace PortMediator
                 (WaitForConnectionRequestTask.Status == TaskStatus.WaitingForChildrenToComplete) ||
                 (WaitForConnectionRequestTask.Status == TaskStatus.WaitingToRun))
             {
-                readTaskCTS.Cancel();
+                Close();
             }
         }
     }
