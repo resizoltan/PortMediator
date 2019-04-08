@@ -42,26 +42,14 @@ namespace PortMediator
 
         public override void Close()
         {
-            try
+            if (!tcpClient.Connected)
             {
-                OnClosed();
-                tcpClient.Client.Shutdown(SocketShutdown.Both);
-                tcpClient.Client.Close();
+                throw new PortClosedException();
             }
-            catch (Exception e)
-            {
-                e.Source = "TCPPeripheral.Close() of " + ID + " -> " + e.Source;
-                throw e;
-            }
-        }
 
-        private void OnClosed()
-        {
-            EventHandler<EventArgs> handler = closed;
-            if(handler != null)
-            {
-                handler(this, new EventArgs());
-            }
+            tcpClient.Client.Shutdown(SocketShutdown.Both);
+            tcpClient.Client.Close();
+
         }
 
         public override void StartReading()
