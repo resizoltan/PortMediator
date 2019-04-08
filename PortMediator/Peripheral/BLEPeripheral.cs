@@ -106,33 +106,35 @@ namespace PortMediator
 
         public override void Write(byte[] data)
         {
+            writeTask = StartWrite(data);
+        }
+
+        private async Task StartWrite(byte[] data)
+        {
             try
             {
                 DataWriter dataWriter = new DataWriter();
                 int bytesSent = 0;
                 int maxSliceSize = 20; //empirically determined maximum (index out of array bonds exception in gattCharacteristic_.WriteValueAsync(...) for higher values)
-                Task sendTask = Task.Factory.StartNew(async delegate
+
+                while (bytesSent < data.Length)
                 {
-                    while(bytesSent < data.Length)
-                    {
-                        int sliceSize = ((data.Length - bytesSent) > maxSliceSize) ?//if   more bytes remain than the maximum ble msg size
-                                    maxSliceSize :                                  //     send maximum msg size amount of bytes
-                                    (data.Length - bytesSent);                      //else send remaining bytes
-                        byte[] slice = new byte[sliceSize];
-                        System.Buffer.BlockCopy(data, bytesSent, slice, 0, sliceSize);  //copy the respective bytes from data to a new array called slice
-                        dataWriter.WriteBytes(slice);
-                        await characteristic.WriteValueAsync(dataWriter.DetachBuffer()); //send data slice to the bluetooth module
-                        bytesSent += sliceSize;
-                    }
-                });
+                    int sliceSize = ((data.Length - bytesSent) > maxSliceSize) ?//if   more bytes remain than the maximum ble msg size
+                                maxSliceSize :                                  //     send maximum msg size amount of bytes
+                                (data.Length - bytesSent);                      //else send remaining bytes
+                    byte[] slice = new byte[sliceSize];
+                    System.Buffer.BlockCopy(data, bytesSent, slice, 0, sliceSize);  //copy the respective bytes from data to a new array called slice
+                    dataWriter.WriteBytes(slice);
+                    await characteristic.WriteValueAsync(dataWriter.DetachBuffer()); //send data slice to the bluetooth module
+                    bytesSent += sliceSize;
+                }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                e.Source = "BLEPort.SendData() of " + ID + " -> " + e.Source;
-                throw e;
+                ExceptionOccuredEventArgs exceptionOccuredEventArgs = new ExceptionOccuredEventArgs(e);
+                OnWaitForConnectionRequestExceptionOccured(exceptionOccuredEventArgs);
             }
         }
-    
     }
 
 
